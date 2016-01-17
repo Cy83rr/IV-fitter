@@ -1,6 +1,8 @@
 import matplotlib.pyplot as pyplot
 import numpy
+import pandas
 import scipy.optimize as optimize
+
 
 voltages = []
 currents = []
@@ -9,11 +11,12 @@ rescale = 1.0
 
 def readData(filename):
     with open(filename) as dataFile:
-        data = numpy.loadtxt(dataFile, skiprows=1)
+        data = pandas.read_csv(dataFile, sep='\t', decimal=',', skiprows=1).values
         global voltages
         global currents
         global currentsErr
         global rescale
+        print(data)
         voltages = data[:,0]
         currents = data[:,1]
         currentsErr = data[:,2]/1000
