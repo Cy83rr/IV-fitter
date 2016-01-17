@@ -8,6 +8,14 @@ voltages = []
 currents = []
 currentsErr= []
 rescale = 1.0
+#sample lenght/width, unitless
+sampleDimension=80
+#pojemnosc elektryczna tlenku na bramce na jednostke powierzchni
+cox=50
+#eletron charge
+echarge=1.6*10**-10
+#gate voltage in V
+vgate=10
 
 def readData(filename):
     with open(filename) as dataFile:
@@ -16,7 +24,6 @@ def readData(filename):
         global currents
         global currentsErr
         global rescale
-        print(data)
         voltages = data[:,0]
         currents = data[:,1]
         currentsErr = data[:,2]/1000
@@ -27,13 +34,21 @@ def readData(filename):
         print(currentsErr)
         voltages = voltages/rescale
 
-def chisqfunction(a_b):
-    a, b = a_b
-    model = a + b*currents
-    chisq = numpy.sum(((voltages- model)/currentsErr)**2)
+def chisqfunction(rcontact_n0_vdirac_mobility):
+    rcontact,n0,vdirac,mobility = rcontact_n0_vdirac_mobility
+
+
+    #niepewnosc oporu
+    resitanceErr=voltages/(currents**2)*currentsErr
+
+    #todo: extract model function for readibility
+    model = 2*rcontact+(sampleDimension/ (numpy.sqrt( (n0+cox*(voltages-vdirac)/echarge)**2) *echarge*mobility ))
+
+    chisq = numpy.sum(((voltages/currents- model)/resitanceErr)**2)
+
     return chisq
 
-x0 = numpy.array([0,0])
+x0 = numpy.array([0,0,0,0])
 
 readData('testData.txt')
 result =  optimize.minimize(chisqfunction, x0)
@@ -41,7 +56,7 @@ print(result)
 assert result.success==True
 
 pyplot.scatter(currents, voltages*rescale)
-a,b=result.x*rescale
-print(a,b)
-pyplot.plot(currents, a+b*currents)
+rcontact,n0,vdirac,mobility=result.x*rescale
+print(rcontact,n0,vdirac,mobility)
+pyplot.plot(2*rcontact+(sampleDimension/ (numpy.sqrt( (n0+cox*(voltages-vdirac)/echarge)**2) *echarge*mobility )), voltages )
 pyplot.savefig('firstplot.png')
