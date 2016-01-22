@@ -4,59 +4,68 @@ import pandas
 import scipy.optimize as optimize
 
 
-voltages = []
-currents = []
-currentsErr= []
+voltages = numpy.array([0])
+currents = numpy.array([0])
+resistance = numpy.array([0])
+
+currentsErr= numpy.array([0])
 rescale = 1.0
-#sample lenght/width, unitless
-sampleDimension=80
-#pojemnosc elektryczna tlenku na bramce na jednostke powierzchni
-cox=50
-#eletron charge
-echarge=1.6*10**-10
-#gate voltage in V
-vgate=10
+
+
+#todo: divide list by another list problem
+#todo: substract from list problem
 
 def readData(filename):
     with open(filename) as dataFile:
-        data = pandas.read_csv(dataFile, sep='\t', decimal=',', skiprows=1).values
+        data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
         global voltages
         global currents
         global currentsErr
         global rescale
-        voltages = data[:,0]
-        currents = data[:,1]
-        currentsErr = data[:,2]/1000
-        rescale = currents.max()
+        global resistance
+        voltages = numpy.array(data[:,0])
+        currents = numpy.array(data[:,1])
+        currentsErr = numpy.array(data[:,2])
 
-        print(voltages)
-        print(currents)
-        print(currentsErr)
-        voltages = voltages/rescale
+        #resistance = abs(voltages/currents)
+        resistance = numpy.array([a / b for a,b in zip(abs(voltages), currents)])
+        #rescale = resistance.max()
+        #resistance = resistance/rescale
+def model(rcontact, n0, vdirac, mobility, voltages):
+    #sample lenght/width, unitless
+    sampleDimension=80
+    #pojemnosc elektryczna tlenku na bramce na jednostke powierzchni
+    cox=50
+    #eletron charge
+    echarge=1.6*10**-10
+
+    return 2*rcontact+(sampleDimension/ (numpy.sqrt( (n0+cox*(voltages-vdirac)/echarge)**2) *echarge*mobility ))
 
 def chisqfunction(rcontact_n0_vdirac_mobility):
     rcontact,n0,vdirac,mobility = rcontact_n0_vdirac_mobility
 
 
     #niepewnosc oporu
-    resitanceErr=voltages/(currents**2)*currentsErr
+    #todo: recount - expected type Number instead of list - voltages anad currents
+    resitanceErr=abs((voltages/(currents**2))*currentsErr)
 
     #todo: extract model function for readibility
-    model = 2*rcontact+(sampleDimension/ (numpy.sqrt( (n0+cox*(voltages-vdirac)/echarge)**2) *echarge*mobility ))
+    #todo: substraction is invalid for voltages
+    predicted = model(rcontact, n0, vdirac, mobility, voltages)
 
-    chisq = numpy.sum(((voltages/currents- model)/resitanceErr)**2)
+    chisq = numpy.sum(((resistance - predicted)/resitanceErr)**2)
 
     return chisq
 
-x0 = numpy.array([0,0,0,0])
+x0 = numpy.array([1000000,4000,20,4000])
 
 readData('testData.txt')
-result =  optimize.minimize(chisqfunction, x0)
+result = optimize.minimize(chisqfunction, x0)
 print(result)
 assert result.success==True
 
-pyplot.scatter(currents, voltages*rescale)
+pyplot.scatter(voltages, resistance*rescale)
 rcontact,n0,vdirac,mobility=result.x*rescale
 print(rcontact,n0,vdirac,mobility)
-pyplot.plot(2*rcontact+(sampleDimension/ (numpy.sqrt( (n0+cox*(voltages-vdirac)/echarge)**2) *echarge*mobility )), voltages )
-pyplot.savefig('firstplot.png')
+pyplot.plot(voltages ,model(rcontact, n0, vdirac, mobility, voltages))
+pyplot.savefig('plot2.png')
