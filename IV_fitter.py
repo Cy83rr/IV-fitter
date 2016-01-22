@@ -12,8 +12,7 @@ currentsErr= numpy.array([0])
 rescale = 1.0
 
 
-#todo: divide list by another list problem
-#todo: substract from list problem
+#todo: change starting parameters
 #todo: doesnt modify starting parameters
 
 def readData(filename):
@@ -52,22 +51,18 @@ def chisqfunction(rcontact_n0_vdirac_mobility):
 
 
     #niepewnosc oporu
-    #todo: recount - expected type Number instead of list - voltages anad currents
     resitanceErr=abs((voltages/(currents**2))*currentsErr)
 
-    print(resitanceErr)
-    #todo: substraction is invalid for voltages
     predicted = model(rcontact, n0, vdirac, mobility, voltages)
-    print(predicted)
 
     chisq = numpy.sum(((resistance - predicted)/resitanceErr)**2)
 
     return chisq
 
-initialParameters = numpy.array([1E9, 1E11, 60, 8000])
+initialParameters = numpy.array([1E6, 1e10, 60, 4000])
 
 readData('testData.txt')
-result = optimize.minimize(chisqfunction, initialParameters)
+result = optimize.minimize(chisqfunction, initialParameters, method='Nelder-Mead')
 print(result)
 assert result.success==True
 
