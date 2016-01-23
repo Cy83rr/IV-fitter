@@ -1,8 +1,7 @@
+import lmfit
 import matplotlib.pyplot as pyplot
 import numpy
 import pandas
-import scipy.optimize as optimize
-
 
 voltages = numpy.array([0])
 currents = numpy.array([0])
@@ -38,36 +37,49 @@ def model(rcontact, n0, vdirac, mobility, voltages):
     #przenikalnosc elektryczna prozni
     epsilonZero=8.854187817*10**-12
     #wzgledna przenikalnosc elektyczna podloza -11.68 SI, 3.9 SIO2
-    epsilon=11.68
+    epsilon=3.9
     #pojemnosc elektryczna tlenku na bramce na jednostke powierzchni
     cox=285*10**-9/epsilon*epsilonZero
     #eletron charge
     echarge=1.6021766208*(10**-19)
 
-    return 2*rcontact+(sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages-vdirac) / echarge)**2) * echarge * mobility))
+    return 2 * rcontact + \
+           (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
 
-def chisqfunction(rcontact_n0_vdirac_mobility):
-    rcontact,n0,vdirac,mobility = rcontact_n0_vdirac_mobility
+def chisqfunction(params, voltagesData, resistanceData, currentsErr):
+    rcontact = params['rcontact'].value
+    n0 = params['n0'].value
+    mobility = params['mobility'].value
+    vdirac = params['vdirac'].value
 
 
     #niepewnosc oporu
     resitanceErr=abs((voltages/(currents**2))*currentsErr)
 
-    predicted = model(rcontact, n0, vdirac, mobility, voltages)
+    predicted = model(rcontact, n0, vdirac, mobility, voltagesData)
 
-    chisq = numpy.sum(((resistance - predicted)/resitanceErr)**2)
+    #chisq = numpy.sum(((resistance - predicted)/resitanceErr)**2)
 
-    return chisq
+    return (resistance - predicted)/resitanceErr
 
-initialParameters = numpy.array([1E6, 1e10, 60, 4000])
+#initialParameters = numpy.array([1E9, 1e13, 60, 4000])
+initialParameters = lmfit.Parameters()
+initialParameters.add('mobility', value=4000)
+initialParameters.add('rcontact', value=1E9)
+initialParameters.add('n0', value=1E11)
+initialParameters.add('vdirac', value=60)
 
 readData('testData.txt')
-result = optimize.minimize(chisqfunction, initialParameters, method='Nelder-Mead')
+result = lmfit.minimize(chisqfunction, initialParameters, args=(voltages, resistance, currentsErr))
 print(result)
-assert result.success==True
 
 pyplot.scatter(voltages, resistance*rescale)
-rcontact, n0, vdirac, mobility = result.x
+fittedParameters = result.params
+rcontact = fittedParameters['rcontact'].value
+n0 = fittedParameters['n0'].value
+vdirac = fittedParameters['vdirac'].value
+mobility = fittedParameters['mobility'].value
+fittedData = resistance + result.residual
 print(rcontact, n0, vdirac, mobility)
-pyplot.plot(voltages, model(rcontact, n0, vdirac, mobility, voltages))
+pyplot.plot(voltages, fittedData)
 pyplot.savefig('plot2.png')
