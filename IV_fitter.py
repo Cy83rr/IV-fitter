@@ -9,7 +9,7 @@ import pandas
 
 # TODO: remember to properly cite lmfit library
 # TODO: including current error - weighted least squares?
-# TODO: write doc with neccessary libraries to run program
+# TODO: write doc with necessary libraries to run program
 # TODO: correlation charts
 # TODO: fit parameters have huge errors - precision problem?
 # TODO: make it a script
@@ -17,7 +17,7 @@ import pandas
 # TODO: add labels to chart
 # TODO: remember to cite properly matplotlib and other libs!
 
-#resistanceErr = numpy.array()
+# resistanceErr = numpy.array()
 
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
@@ -48,12 +48,13 @@ def model(rcontact, n0, vdirac, mobility, voltages):
     # relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
     epsilon=3.9
     # capacitance of the oxydant on the gate, per unit of surface area
-    cox=epsilon*epsilonZero/(285*1e-9) / 1e4 # divided by 1e4 to convert to square centimeters
+    cox=epsilon*epsilonZero/(285*1e-9) / 1e4  # divided by 1e4 to convert to square centimeters
     # eletron charge
-    echarge=1.6021766208*(1e-19)
+    echarge=1.6021766208*1e-19
 
     return 2 * rcontact*1e7 + \
-            (sampleDimension / (numpy.sqrt((n0*1e9)**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e3))
+        (sampleDimension /
+            (numpy.sqrt((n0*1e9)**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e3))
 
 def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsErr):
     rcontact = params['rcontact'].value
@@ -62,22 +63,27 @@ def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsEr
     vdirac = params['vdirac'].value
 
 
-    # TODO: how to include those errors?
-    # resistance error
-    #global resitanceErr
+    #  TODO:how to include those errors?
+    #  resistance error
+    #  global resitanceErr
     resitanceErr = numpy.array(abs((voltagesData/(currentsData**2))*currentsErr))
 
     predicted = numpy.array(model(rcontact, n0, vdirac, mobility, voltagesData))
     return numpy.array(((resistanceData - predicted)/predicted))
 
 def plotFigures(initialParameters, fileName, resultPath):
+
+    resultName=os.path.splitext(fileName)[0]
     voltages, currents, currentsErr, resistance = readData(fileName)
-    # TODO: use a minimizer, might help counting stderr and correl and is (?) needed for correl charts
+    # fitting to data using lestsq method
     minimizer = lmfit.Minimizer(chisqfunction, initialParameters,
                                 fcn_args=(voltages, resistance, currents, currentsErr))
     result = minimizer.leastsq()
+    # saving fit result to a text file
+    fitResult=open(os.path.join(resultPath, resultName+'Fit.txt'), "w+")
+    fitResult.write(lmfit.fit_report(result))
+    fitResult.close()
 
-    print(result)
     # TODO: change the order of commands to draw - avoid needless redrawing
     ci, trace = lmfit.conf_interval(minimizer, result, sigmas=[0.68, 0.95], trace=True, verbose=False)
     x, y, prob = trace['mobility']['mobility'], trace['mobility']['vdirac'], trace['mobility']['prob']
@@ -90,7 +96,6 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.ylabel('vdirac')
     pyplot.savefig('mob-n0.png')
 
-    fittedParameters = result.params
     fittedData = resistance + result.residual
 
     print(lmfit.fit_report(result, min_correl=0.1))
@@ -106,16 +111,15 @@ def plotFigures(initialParameters, fileName, resultPath):
     # ax2.errorbar(voltages, resistance, resistanceErr)
     pyplot.legend((scatter, line), ['Data', 'Fit'], loc="best")
     # TODO: save additional information on the chart: sample dimensions, source-drain voltage
-    resultName=os.path.splitext(fileName)[0]
     pyplot.savefig(os.path.join(resultPath, resultName))
 
 
 
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
-initialParameters.add('mobility', value=2, min=1e-1, max=100)
-initialParameters.add('rcontact', value=4, min=1e-4)
-initialParameters.add('n0', value=1.2, min=1e-3)
+initialParameters.add('mobility', value=2, min=0, max=100)
+initialParameters.add('rcontact', value=4, min=0)
+initialParameters.add('n0', value=1.2, min=0)
 initialParameters.add('vdirac', value=60, min=55, max=65)
 
 filePath=input("Write the path to data files (default: current directory): ")
