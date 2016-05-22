@@ -13,7 +13,6 @@ import pandas
 # TODO: correlation charts
 # TODO: fit parameters have huge errors - precision problem?
 # TODO: make it a script
-# TODO: decide, how it should look like user-wise
 # TODO: add labels to chart
 # TODO: remember to cite properly matplotlib and other libs!
 
@@ -73,16 +72,22 @@ def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsEr
 
 def plotFigures(initialParameters, fileName, resultPath):
 
-    resultName=os.path.splitext(fileName)[0]
+    if not resultPath.strip():
+        resultPath = os.path.curdir + '/results/'
+
+    resultName=os.path.split(os.path.splitext(fileName)[0])[1]
     voltages, currents, currentsErr, resistance = readData(fileName)
     # fitting to data using lestsq method
     minimizer = lmfit.Minimizer(chisqfunction, initialParameters,
                                 fcn_args=(voltages, resistance, currents, currentsErr))
     result = minimizer.leastsq()
+    # check if directory exists, create if needed
+    directory=os.path.dirname(resultPath)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     # saving fit result to a text file
-    fitResult=open(os.path.join(resultPath, resultName+'Fit.txt'), "w+")
-    fitResult.write(lmfit.fit_report(result))
-    fitResult.close()
+    with open(os.path.join(resultPath, resultName+'Fit.txt'), "w+") as fitResult:
+        fitResult.write(lmfit.fit_report(result))
 
     # TODO: change the order of commands to draw - avoid needless redrawing
     ci, trace = lmfit.conf_interval(minimizer, result, sigmas=[0.68, 0.95], trace=True, verbose=False)
@@ -94,7 +99,7 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.scatter(x2, y2, c=prob2)
     pyplot.xlabel('mobility')
     pyplot.ylabel('vdirac')
-    pyplot.savefig('mob-n0.png')
+    pyplot.savefig(os.path.join(resultPath, resultName+'_mob-n0.png'))
 
     fittedData = resistance + result.residual
 
@@ -123,10 +128,7 @@ initialParameters.add('n0', value=1.2, min=0)
 initialParameters.add('vdirac', value=60, min=55, max=65)
 
 filePath=input("Write the path to data files (default: current directory): ")
-resultPath=input("Write the path where the results will be saved(default: data directory): ")
-
-if not resultPath.strip():
-    resultPath=filePath
+resultPath=input("Write the path where the results will be saved(default: data directory/results): ")
 
 for infile in glob.glob( os.path.join(filePath, '*.txt')):
     plotFigures(initialParameters, infile, resultPath)
