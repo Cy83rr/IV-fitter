@@ -83,9 +83,6 @@ def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsEr
 
 def plotFigures(initialParameters, fileName, resultPath):
 
-    if not resultPath.strip():
-        resultPath = os.path.curdir + '/results/'
-
     resultName = os.path.split(os.path.splitext(fileName)[0])[1]
     voltages, currents, currentsErr, resistance = readData(fileName)
 
@@ -143,9 +140,9 @@ initialParameters.add('n0', value=10, min=0.1, max=1e3)  # value times 1e10
 initialParameters.add('vdirac', value=60, min=55, max=65)
 
 # system promts for data input/output
-filePath = input("Write the path to data files (default: current directory): ")
-resultPath = input("Write the path where the results will be saved(default: data directory/results): ")
-sampleDimension = int(input("Write the sample dimensions (length/width, default: 2): "))
+filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
+resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
+sampleDimension = int(input("Write the sample dimensions (length/width, default: 2): ") or 2)
 
 for infile in glob.glob( os.path.join(filePath, '*.txt')):
     plotFigures(initialParameters, infile, resultPath)
