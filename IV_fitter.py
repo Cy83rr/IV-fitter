@@ -6,13 +6,14 @@ import matplotlib.pyplot as pyplot
 import numpy
 import pandas
 
-# TODO: remember to properly cite lmfit library
 # TODO: including current error - weighted least squares?
 # TODO: write doc with necessary libraries to run program
 # TODO: correlation charts
-# TODO: make it a script
-# TODO: add labels to chart
 # TODO: remember to cite properly matplotlib and other libs!
+# TODO: remember to properly cite lmfit library
+
+# TODO: add logging - when exceeding a conrete chi2 error, log which file it was; log when there are errors in correlation charts
+
 
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
@@ -58,8 +59,6 @@ def readData(filename):
         return voltages, currents, currentsErr, scaledResistance
 # TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
-
-
     # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK, UNDERSTAND
     return 2 * rcontact + \
         (sampleDimension /
@@ -71,7 +70,6 @@ def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsEr
     n0 = params['n0'].value
     mobility = params['mobility'].value
     vdirac = params['vdirac'].value
-
 
     #  TODO:how to include those errors?
     #  resistance error
