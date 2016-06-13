@@ -6,7 +6,6 @@ import matplotlib.pyplot as pyplot
 import numpy
 import pandas
 
-
 # TODO: remember to properly cite lmfit library
 # TODO: including current error - weighted least squares?
 # TODO: write doc with necessary libraries to run program
@@ -17,6 +16,25 @@ import pandas
 
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
+
+#############
+# Constants
+#############
+
+# sample length/width, unitless
+sampleDimension = 2
+# electron charge in [C]
+echarge = 1.6021766208 * 1e-19
+# vaccum permittivity in [F/m]
+epsilonZero = 8.854187817 * 1e-12  # *(1e-2)  to make F/cm from F/m
+# relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
+epsilon = 3.9
+# oxidant thickness in [m]
+tox = 285 * 1e-9  # *1e2 to make [cm]
+# capacitance of the oxidant on the gate, per unit of surface area
+cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters
+
+#############
 
 # read data from a file and cuts it off at a specific place
 def readData(filename):
@@ -40,20 +58,9 @@ def readData(filename):
         return voltages, currents, currentsErr, scaledResistance
 # TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
-    # sample length/width, unitless
-    sampleDimension = 2
-    # vaccum permittivity in [F/m]
-    epsilonZero = 8.854187817*1e-12 #*(1e-2)  to make F/cm from F/m
-    # relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
-    epsilon=3.9
-    # oxidant thickness in [m]
-    tox = 285*1e-9 #*1e2 to make [cm]
-    # capacitance of the oxidant on the gate, per unit of surface area
-    cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters
-    # electron charge in [C]
-    echarge = 1.6021766208*1e-19
 
-    # 1e4 and 1e-4 is for converting to square centimeters
+
+    # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK, UNDERSTAND
     return 2 * rcontact + \
         (sampleDimension /
             (numpy.sqrt((n0*1e10*1e4)**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2*1e-4))\
@@ -79,8 +86,9 @@ def plotFigures(initialParameters, fileName, resultPath):
     if not resultPath.strip():
         resultPath = os.path.curdir + '/results/'
 
-    resultName=os.path.split(os.path.splitext(fileName)[0])[1]
+    resultName = os.path.split(os.path.splitext(fileName)[0])[1]
     voltages, currents, currentsErr, resistance = readData(fileName)
+
     # fitting to data using lestsq method
     #gmod = lmfit.Model(model)
     #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
@@ -89,7 +97,7 @@ def plotFigures(initialParameters, fileName, resultPath):
                                 fcn_args=(voltages, resistance, currents, currentsErr))
     result = minimizer.leastsq()
     # check if directory exists, create if needed
-    directory=os.path.dirname(resultPath)
+    directory = os.path.dirname(resultPath)
     if not os.path.exists(directory):
         os.makedirs(directory)
     # saving fit result to a text file
@@ -120,8 +128,8 @@ def plotFigures(initialParameters, fileName, resultPath):
     line, = pyplot.plot(voltages, fittedData, color='red')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ k\u2126 ]')
-    pyplot.text(0.95, 0.1, 'Sample dimension: 2')
-    pyplot.text(3, 2, 'V_DS: 10 V')
+    pyplot.text(3, 60, 'Sample dimension [length/width]: '+str(sampleDimension))
+    pyplot.text(3, 55, 'V_DS: 10 V')
     # ax2.errorbar(voltages, resistance, resistanceErr)
     pyplot.legend((scatter, line), ['Data', 'Fit'], loc="best")
     # TODO: save additional information on the chart: sample dimensions, source-drain voltage
@@ -134,9 +142,10 @@ initialParameters.add('rcontact', value=0.01, min=0, max=1e1)  # value times 1e6
 initialParameters.add('n0', value=10, min=0.1, max=1e3)  # value times 1e10
 initialParameters.add('vdirac', value=60, min=55, max=65)
 
-
-filePath=input("Write the path to data files (default: current directory): ")
-resultPath=input("Write the path where the results will be saved(default: data directory/results): ")
+# system promts for data input/output
+filePath = input("Write the path to data files (default: current directory): ")
+resultPath = input("Write the path where the results will be saved(default: data directory/results): ")
+sampleDimension = int(input("Write the sample dimensions (length/width, default: 2): "))
 
 for infile in glob.glob( os.path.join(filePath, '*.txt')):
     plotFigures(initialParameters, infile, resultPath)
