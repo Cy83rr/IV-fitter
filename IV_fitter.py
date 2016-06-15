@@ -1,5 +1,6 @@
 import glob
 import os
+import logging
 
 import lmfit
 import matplotlib.pyplot as pyplot
@@ -12,7 +13,7 @@ import pandas
 # TODO: remember to cite properly matplotlib and other libs!
 # TODO: remember to properly cite lmfit library
 
-# TODO: add logging - when exceeding a conrete chi2 error, log which file it was; log when there are errors in correlation charts
+# TODO: log when there are errors in correlation charts
 
 
 # TODO write all necessary dependencies or smth like gradle in java -
@@ -22,7 +23,7 @@ import pandas
 # Constants
 #############
 
-# sample length/width, unitless
+# sample length/width, unitless - default value
 sampleDimension = 2
 # electron charge in [C]
 echarge = 1.6021766208 * 1e-19
@@ -36,6 +37,18 @@ tox = 285 * 1e-9  # *1e2 to make [cm]
 cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters
 
 #############
+
+#Prepare logger
+LOGGER = logging.getLogger('FITTER')
+LOGGER.setLevel(logging.INFO)
+
+handler = logging.FileHandler('fitter.log')
+handler.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+LOGGER.addHandler(handler)
 
 # read data from a file and cuts it off at a specific place
 def readData(filename):
@@ -64,7 +77,7 @@ def model(voltages, rcontact, n0, vdirac, mobility):
         (sampleDimension /
             (numpy.sqrt((n0*1e10*1e4)**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2*1e-4))\
         / 1e6  # to make kiloOhms
-
+# probably not neccessary anymore
 def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsErr):
     rcontact = params['rcontact'].value
     n0 = params['n0'].value
@@ -85,19 +98,25 @@ def plotFigures(initialParameters, fileName, resultPath):
     voltages, currents, currentsErr, resistance = readData(fileName)
 
     # fitting to data using lestsq method
-    #gmod = lmfit.Model(model)
-    #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
+    gmod = lmfit.Model(model)
+    result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
+    if result.chisqr > 100:
+        LOGGER.log(logging.ERROR, msg='Too big error in file: '+resultName)
+        LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
+        LOGGER.log(logging.ERROR, msg=str(result.params))
 
-    minimizer = lmfit.Minimizer(chisqfunction, initialParameters,
-                                fcn_args=(voltages, resistance, currents, currentsErr))
-    result = minimizer.leastsq()
+    #minimizer = lmfit.Minimizer(chisqfunction, initialParameters,
+    #                            fcn_args=(voltages, resistance, currents, currentsErr))
+    #result = minimizer.leastsq()
+
+
     # check if directory exists, create if needed
     directory = os.path.dirname(resultPath)
     if not os.path.exists(directory):
         os.makedirs(directory)
     # saving fit result to a text file
     with open(os.path.join(resultPath, resultName+'Fit.txt'), "w+") as fitResult:
-        fitResult.write(lmfit.fit_report(result))
+        fitResult.write(result.fit_report())
 
     # TODO: change the order of commands to draw - avoid needless redrawing
     #ci, trace = lmfit.conf_interval(minimizer, result, sigmas=[0.68, 0.95], trace=True, verbose=False)
@@ -112,36 +131,42 @@ def plotFigures(initialParameters, fileName, resultPath):
     #pyplot.savefig(os.path.join(resultPath, resultName+'_mob-n0.png'))
 
     print(lmfit.fit_report(result, min_correl=0.1))
-    fittedParameters = result.params
-    fittedData = model(voltages, fittedParameters.get('rcontact').value,
-                       fittedParameters.get('n0').value,
-                       fittedParameters.get('vdirac').value,
-                       fittedParameters.get('rcontact').value)
+    #fittedParameters = result.params
+    #fittedData = model(voltages, fittedParameters.get('rcontact').value,
+                       #fittedParameters.get('n0').value,
+                       #fittedParameters.get('vdirac').value,
+                       #fittedParameters.get('rcontact').value)
     fig2 = pyplot.figure(1)
     # ax2 = fig2.add_subplot(111)
     scatter = pyplot.scatter(voltages, resistance)
-    line, = pyplot.plot(voltages, fittedData, color='red')
+    #line, = pyplot.plot(voltages, fittedData, color='red')
+    initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
+    bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ k\u2126 ]')
-    pyplot.text(3, 60, 'Sample dimension [length/width]: '+str(sampleDimension))
-    pyplot.text(3, 55, 'V_DS: 10 V')
+    pyplot.text(-8, 47, 'Sample dimension [length/width]: '+str(sampleDimension))
+    pyplot.text(-8, 42, 'V_DS: 10 V')
+    pyplot.title('Charakterystyka przejsciowa')
     # ax2.errorbar(voltages, resistance, resistanceErr)
-    pyplot.legend((scatter, line), ['Data', 'Fit'], loc="best")
-    # TODO: save additional information on the chart: sample dimensions, source-drain voltage
+    pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='best')
     pyplot.savefig(os.path.join(resultPath, resultName))
 
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
-initialParameters.add('mobility', value=20, min=1, max=2e2)  # value times 1e2
-initialParameters.add('rcontact', value=0.01, min=0, max=1e1)  # value times 1e6
-initialParameters.add('n0', value=10, min=0.1, max=1e3)  # value times 1e10
-initialParameters.add('vdirac', value=60, min=55, max=65)
+initialParameters.add('mobility', value=10, min=1, max=2e2)  # value times 1e2
+initialParameters.add('rcontact', value=10, min=0, max=1e2)  # value times 1e6
+initialParameters.add('n0', value=100, min=1, max=1e3)  # value times 1e10
+initialParameters.add('vdirac', value=60, min=57, max=65) # in volts
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Write the sample dimensions (length/width, default: 2): ") or 2)
 
+LOGGER.info('Script starting')
+
 for infile in glob.glob( os.path.join(filePath, '*.txt')):
     plotFigures(initialParameters, infile, resultPath)
+
+LOGGER.info('Script finished')
 
