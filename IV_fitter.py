@@ -1,6 +1,6 @@
 import glob
-import os
 import logging
+import os
 
 import lmfit
 import matplotlib.pyplot as pyplot
@@ -68,22 +68,22 @@ def readData(filename):
 
         resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
         # to make kiloOhms
-        scaledResistance = resistance/1e6
+        scaledResistance = resistance/1e5
         return voltages, currents, currentsErr, scaledResistance
 # TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
     # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK, UNDERSTAND
     return 2 * rcontact + \
         (sampleDimension /
-            (numpy.sqrt((n0*1e10*1e4)**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2*1e-4))\
-        / 1e6  # to make kiloOhms
+            (numpy.sqrt((n0*1e9)**2 + (cox * 1e-4 * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2))\
+        / 1e5  # to make kiloOhms
 
 def plotFigures(initialParameters, fileName, resultPath):
 
     resultName = os.path.split(os.path.splitext(fileName)[0])[1]
     voltages, currents, currentsErr, resistance = readData(fileName)
 
-    # fitting to data using lestsq method
+    # fitting to data using leastsq method
     gmod = lmfit.Model(model)
     result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
     if result.chisqr > 100:
@@ -98,18 +98,19 @@ def plotFigures(initialParameters, fileName, resultPath):
     # saving fit result to a text file
     with open(os.path.join(resultPath, resultName+'Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
-
+# TODO remove
     print(lmfit.fit_report(result, min_correl=0.1))
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     initFitLine = pyplot.plot(voltages, result.init_fit, 'k--')
     bestFitLine = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
-    pyplot.ylabel('Resistance [ k\u2126 ]')
+    pyplot.ylabel('Resistance [ M\u2126 ]')
+    # TODO fix text placement
     pyplot.text(-8, 47, 'Sample dimension [length/width]: '+str(sampleDimension))
     pyplot.text(-8, 42, 'V_DS: 10 V')
     pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
+    pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='best')
     pyplot.savefig(os.path.join(resultPath, resultName))
 
     # TODO: correlation charts
@@ -119,18 +120,19 @@ def plotFigures(initialParameters, fileName, resultPath):
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
 initialParameters.add('mobility', value=10, min=1, max=2e2)  # value times 1e2
-initialParameters.add('rcontact', value=10, min=0, max=1e2)  # value times 1e6
-initialParameters.add('n0', value=100, min=1, max=1e3)  # value times 1e10
-initialParameters.add('vdirac', value=60, min=57, max=65) # in volts
+initialParameters.add('rcontact', value=1, min=0.01, max=1e3)  # value times 1e5
+initialParameters.add('n0', value=10, min=0, max=1e3)  # value times 1e9
+initialParameters.add('vdirac', value=60, min=55, max=65) # in volts
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
-sampleDimension = int(input("Write the sample dimensions (length/width, default: 2): ") or 2)
+sampleDimension = int(input("Write the sample dimensions (length/width, default: 6): ") or 6)
 
 LOGGER.info('Script starting')
 
-for infile in glob.glob( os.path.join(filePath, '*.txt')):
+# Iterate over every file with .txt extension
+for infile in glob.glob(os.path.join(filePath, '*.txt')):
     plotFigures(initialParameters, infile, resultPath)
 
 LOGGER.info('Script finished')
