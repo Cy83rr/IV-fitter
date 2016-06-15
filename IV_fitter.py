@@ -77,20 +77,6 @@ def model(voltages, rcontact, n0, vdirac, mobility):
         (sampleDimension /
             (numpy.sqrt((n0*1e10*1e4)**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2*1e-4))\
         / 1e6  # to make kiloOhms
-# probably not neccessary anymore
-def chisqfunction(params, voltagesData, resistanceData, currentsData, currentsErr):
-    rcontact = params['rcontact'].value
-    n0 = params['n0'].value
-    mobility = params['mobility'].value
-    vdirac = params['vdirac'].value
-
-    #  TODO:how to include those errors?
-    #  resistance error
-    #  global resitanceErr
-    resitanceErr = numpy.array(abs((voltagesData/(currentsData**2))*currentsErr))
-
-    predicted = numpy.array(model(voltagesData, rcontact, n0, vdirac, mobility))
-    return numpy.array((predicted - resistanceData) / numpy.sqrt(predicted))
 
 def plotFigures(initialParameters, fileName, resultPath):
 
@@ -105,11 +91,6 @@ def plotFigures(initialParameters, fileName, resultPath):
         LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
         LOGGER.log(logging.ERROR, msg=str(result.params))
 
-    #minimizer = lmfit.Minimizer(chisqfunction, initialParameters,
-    #                            fcn_args=(voltages, resistance, currents, currentsErr))
-    #result = minimizer.leastsq()
-
-
     # check if directory exists, create if needed
     directory = os.path.dirname(resultPath)
     if not os.path.exists(directory):
@@ -118,38 +99,22 @@ def plotFigures(initialParameters, fileName, resultPath):
     with open(os.path.join(resultPath, resultName+'Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
 
-    # TODO: change the order of commands to draw - avoid needless redrawing
-    #ci, trace = lmfit.conf_interval(minimizer, result, sigmas=[0.68, 0.95], trace=True, verbose=False)
-    #x, y, prob = trace['mobility']['mobility'], trace['mobility']['vdirac'], trace['mobility']['prob']
-    #x2, y2, prob2 = trace['vdirac']['vdirac'], trace['vdirac']['mobility'], trace['vdirac']['prob']
-    #fig1 = pyplot.figure(0)
-    # ax1 = fig1.add_subplot(111)
-    #pyplot.scatter(x, y, c=prob)
-    #pyplot.scatter(x2, y2, c=prob2)
-    #pyplot.xlabel('mobility')
-    #pyplot.ylabel('vdirac')
-    #pyplot.savefig(os.path.join(resultPath, resultName+'_mob-n0.png'))
-
     print(lmfit.fit_report(result, min_correl=0.1))
-    #fittedParameters = result.params
-    #fittedData = model(voltages, fittedParameters.get('rcontact').value,
-                       #fittedParameters.get('n0').value,
-                       #fittedParameters.get('vdirac').value,
-                       #fittedParameters.get('rcontact').value)
-    fig2 = pyplot.figure(1)
-    # ax2 = fig2.add_subplot(111)
+    pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    #line, = pyplot.plot(voltages, fittedData, color='red')
-    initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
-    bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
+    initFitLine = pyplot.plot(voltages, result.init_fit, 'k--')
+    bestFitLine = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ k\u2126 ]')
     pyplot.text(-8, 47, 'Sample dimension [length/width]: '+str(sampleDimension))
     pyplot.text(-8, 42, 'V_DS: 10 V')
     pyplot.title('Charakterystyka przejsciowa')
-    # ax2.errorbar(voltages, resistance, resistanceErr)
-    pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='best')
+    pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
     pyplot.savefig(os.path.join(resultPath, resultName))
+
+    # TODO: correlation charts
+    #pyplot.figure()
+
 
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
