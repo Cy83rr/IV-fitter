@@ -78,6 +78,18 @@ def model(voltages, rcontact, n0, vdirac, mobility):
             (numpy.sqrt((n0*1e9)**2 + (cox * 1e-4 * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2))\
         / 1e5  # to make kiloOhms
 
+def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
+    x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
+    x2, y2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], trace[secondParameter]['prob']
+    pyplot.figure()
+    pyplot.scatter(x, y, c=prob, s=30)
+    pyplot.scatter(x2, y2, c=prob2, s=30)
+    pyplot.gca().set_xlim((1, 5))
+    pyplot.gca().set_ylim((5, 15))
+    pyplot.xlabel(firstParameter)
+    pyplot.ylabel(secondParameter)
+    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation'))
+
 def plotFigures(initialParameters, fileName, resultPath):
 
     resultName = os.path.split(os.path.splitext(fileName)[0])[1]
@@ -96,9 +108,9 @@ def plotFigures(initialParameters, fileName, resultPath):
     if not os.path.exists(directory):
         os.makedirs(directory)
     # saving fit result to a text file
-    with open(os.path.join(resultPath, resultName+'Fit.txt'), "w+") as fitResult:
+    with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
-# TODO remove
+    # TODO remove
     print(lmfit.fit_report(result, min_correl=0.1))
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
@@ -114,7 +126,10 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.savefig(os.path.join(resultPath, resultName))
 
     # TODO: correlation charts
-    #pyplot.figure()
+
+    #ci, trace = lmfit.conf_interval(gmod, result, sigmas=[0.68, 0.95], trace=True, verbose=False)
+
+    #plotCorrelationChart(trace, 'n0', 'vdirac', resultPath, resultName)
 
 
 # set initial parameters with bounds
