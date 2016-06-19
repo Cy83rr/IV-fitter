@@ -9,7 +9,6 @@ import pandas
 
 # TODO: including current error - weighted least squares?
 # TODO: write doc with necessary libraries to run program
-# TODO: correlation charts
 # TODO: remember to cite properly matplotlib and other libs!
 # TODO: remember to properly cite lmfit library
 
@@ -22,6 +21,9 @@ import pandas
 #############
 # Constants
 #############
+
+# Flag for correlation charts
+correlationCharts = False
 
 # sample length/width, unitless - default value
 sampleDimension = 2
@@ -84,11 +86,9 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.figure()
     pyplot.scatter(x, y, c=prob, s=30)
     pyplot.scatter(x2, y2, c=prob2, s=30)
-    pyplot.gca().set_xlim((1, 5))
-    pyplot.gca().set_ylim((5, 15))
     pyplot.xlabel(firstParameter)
     pyplot.ylabel(secondParameter)
-    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation'))
+    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation_'+firstParameter+'_'+secondParameter))
 
 def plotFigures(initialParameters, fileName, resultPath):
 
@@ -124,12 +124,22 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.title('Charakterystyka przejsciowa')
     pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='best')
     pyplot.savefig(os.path.join(resultPath, resultName))
+    # TODO fix charts
+    #Plot correlation charts
+    if correlationCharts == True:
+        LOGGER.info("Creating correlation charts")
+        try:
+            ci, trace = result.conf_interval(sigmas=[0.68, 0.95], trace=True, verbose=False)
 
-    # TODO: correlation charts
-
-    #ci, trace = lmfit.conf_interval(gmod, result, sigmas=[0.68, 0.95], trace=True, verbose=False)
-
-    #plotCorrelationChart(trace, 'n0', 'vdirac', resultPath, resultName)
+            plotCorrelationChart(trace, 'n0', 'vdirac', resultPath, resultName)
+            plotCorrelationChart(trace, 'mobility', 'n0', resultPath, resultName)
+            plotCorrelationChart(trace, 'mobility', 'rcontact', resultPath, resultName)
+            plotCorrelationChart(trace, 'mobility', 'vdirac', resultPath, resultName)
+            plotCorrelationChart(trace, 'rcontact', 'n0', resultPath, resultName)
+            plotCorrelationChart(trace, 'rcontact', 'vdirac', resultPath, resultName)
+        except:
+            LOGGER.error("Could not create charts for "+resultName)
+        LOGGER.info("Finished creating correlation charts")
 
 
 # set initial parameters with bounds
@@ -143,6 +153,7 @@ initialParameters.add('vdirac', value=60, min=55, max=65) # in volts
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Write the sample dimensions (length/width, default: 6): ") or 6)
+correlationCharts = bool(input("Plot correlation charts? (True/False, default: False): ") or False)
 
 LOGGER.info('Script starting')
 
@@ -151,4 +162,3 @@ for infile in glob.glob(os.path.join(filePath, '*.txt')):
     plotFigures(initialParameters, infile, resultPath)
 
 LOGGER.info('Script finished')
-
