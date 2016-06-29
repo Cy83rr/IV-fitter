@@ -9,8 +9,6 @@ import pandas
 
 # TODO: including current error - weighted least squares?
 # TODO: write doc with necessary libraries to run program
-# TODO: remember to cite properly matplotlib and other libs!
-# TODO: remember to properly cite lmfit library
 
 # TODO: log when there are errors in correlation charts
 
@@ -29,7 +27,7 @@ correlationCharts = False
 sampleDimension = 2
 # electron charge in [C]
 echarge = 1.6021766208 * 1e-19
-# vaccum permittivity in [F/m]
+# vacuum permittivity in [F/m]
 epsilonZero = 8.854187817 * 1e-12  # *(1e-2)  to make F/cm from F/m
 # relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
 epsilon = 3.9
@@ -40,7 +38,7 @@ cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centime
 
 #############
 
-#Prepare logger
+# Prepare logger
 LOGGER = logging.getLogger('FITTER')
 LOGGER.setLevel(logging.INFO)
 
@@ -52,7 +50,9 @@ handler.setFormatter(formatter)
 
 LOGGER.addHandler(handler)
 
-# read data from a file and cuts it off at a specific place
+# Reads data from a file and cuts it off at a specific place
+
+
 def readData(filename):
     with open(filename) as dataFile:
         data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
@@ -72,6 +72,8 @@ def readData(filename):
         # to make kiloOhms
         scaledResistance = resistance/1e5
         return voltages, currents, currentsErr, scaledResistance
+
+
 # TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
     # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK, UNDERSTAND
@@ -79,6 +81,7 @@ def model(voltages, rcontact, n0, vdirac, mobility):
         (sampleDimension /
             (numpy.sqrt((n0*1e9)**2 + (cox * 1e-4 * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2))\
         / 1e5  # to make kiloOhms
+
 
 def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
     x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
@@ -89,6 +92,7 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.xlabel(firstParameter)
     pyplot.ylabel(secondParameter)
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation_'+firstParameter+'_'+secondParameter))
+
 
 def plotFigures(initialParameters, fileName, resultPath):
 
@@ -125,8 +129,8 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='best')
     pyplot.savefig(os.path.join(resultPath, resultName))
     # TODO fix charts
-    #Plot correlation charts
-    if correlationCharts == True:
+    # Plot correlation charts
+    if correlationCharts:
         LOGGER.info("Creating correlation charts")
         try:
             ci, trace = result.conf_interval(sigmas=[0.68, 0.95], trace=True, verbose=False)
