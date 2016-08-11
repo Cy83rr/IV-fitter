@@ -84,14 +84,35 @@ def model(voltages, rcontact, n0, vdirac, mobility):
 
 
 def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
-    x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
-    x2, y2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], trace[secondParameter]['prob']
+    #x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
+    #x2, y2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], trace[secondParameter]['prob']
+    #pyplot.figure()
+    #pyplot.scatter(x, y, c=prob, s=30)
+    #pyplot.scatter(x2, y2, c=prob2, s=30)
+    #pyplot.xlabel(firstParameter)
+    #pyplot.ylabel(secondParameter)
+
+    x1, y1, prob1 = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], \
+                    trace[firstParameter]['prob']
+    y2, x2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], \
+                    trace[secondParameter]['prob']
+
     pyplot.figure()
-    pyplot.scatter(x, y, c=prob, s=30)
+    pyplot.scatter(x1, y1, c=prob1, s=30)
     pyplot.scatter(x2, y2, c=prob2, s=30)
-    pyplot.xlabel(firstParameter)
-    pyplot.ylabel(secondParameter)
+    ax = pyplot.gca()  # please label your axes!
+    ax.set_xlabel(firstParameter)
+    ax.set_ylabel(secondParameter)
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation_'+firstParameter+'_'+secondParameter))
+
+    fig = pyplot.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(x1, y1, prob1)
+    ax.scatter(x2, y2, prob2)
+    ax.set_xlabel(firstParameter)
+    ax.set_ylabel(secondParameter)
+    ax.set_zlabel('sigma')
+    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
 def plotFigures(initialParameters, fileName, resultPath):
