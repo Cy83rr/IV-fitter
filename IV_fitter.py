@@ -8,10 +8,6 @@ import numpy
 import pandas
 
 # TODO: including current error - weighted least squares?
-# TODO: write doc with necessary libraries to run program
-
-# TODO: log when there are errors in correlation charts
-
 
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
@@ -24,7 +20,7 @@ import pandas
 correlationCharts = False
 
 # sample length/width, unitless - default value
-sampleDimension = 2
+sampleDimension = 6
 # electron charge in [C]
 echarge = 1.6021766208 * 1e-19
 # vacuum permittivity in [F/m]
@@ -76,7 +72,7 @@ def readData(filename):
 
 # TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
-    # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK, UNDERSTAND
+    # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK!
     return 2 * rcontact + \
         (sampleDimension /
             (numpy.sqrt((n0*1e9)**2 + (cox * 1e-4 * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2))\
