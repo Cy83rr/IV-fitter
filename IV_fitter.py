@@ -139,15 +139,14 @@ def plotFigures(initialParameters, fileName, resultPath):
     print(lmfit.fit_report(result, min_correl=0.1))
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    initFitLine = pyplot.plot(voltages, result.init_fit, 'k--')
-    bestFitLine = pyplot.plot(voltages, result.best_fit, 'r-')
+    initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
+    bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
-    # TODO fix text placement
-    pyplot.text(-8, 47, 'Sample dimension [length/width]: '+str(sampleDimension))
-    pyplot.text(-8, 42, 'V_DS: 10 V')
+    pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
+    pyplot.text(-8, 152, 'V_DS: 10 V')
     pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend((scatter, initFitLine, bestFitLine), ['Data', 'Initial Fit', 'Best Fit'], loc='best')
+    pyplot.legend([scatter, initFitLine, bestFitLine], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
     pyplot.savefig(os.path.join(resultPath, resultName))
     # TODO fix charts
     # Plot correlation charts
