@@ -22,15 +22,18 @@ correlationCharts = False
 # sample length/width, unitless - default value
 sampleDimension = 6
 # electron charge in [C]
-echarge = 1.6021766208 * 1e-19
+#echarge = 1.6021766208 * 1e-19
+echarge = 1  # set as 1 to avoid precision problems
 # vacuum permittivity in [F/m]
-epsilonZero = 8.854187817 * 1e-12  # *(1e-2)  to make F/cm from F/m
+#epsilonZero = 8.854187817 * 1e-12
+epsilonZero = 8.854187817   # *(1e-2)  to make F/cm from F/m
 # relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
 epsilon = 3.9
 # oxidant thickness in [m]
-tox = 285 * 1e-9  # *1e2 to make [cm]
+#tox = 285 * 1e-9  # *1e2 to make [cm]
+tox = 285
 # capacitance of the oxidant on the gate, per unit of surface area
-cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters
+cox = 1e3*epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters, 1e3 from epsilon & epsilonZero
 
 #############
 
@@ -75,7 +78,7 @@ def model(voltages, rcontact, n0, vdirac, mobility):
     # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK!
     return 2 * rcontact + \
         (sampleDimension /
-            (numpy.sqrt((n0*1e9)**2 + (cox * 1e-4 * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2))\
+            (numpy.sqrt((n0 * 1e6)**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))\
         / 1e5  # to make kiloOhms
 
 
@@ -164,10 +167,10 @@ def plotFigures(initialParameters, fileName, resultPath):
 
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
-initialParameters.add('mobility', value=10, min=1, max=2e2)  # value times 1e2
-initialParameters.add('rcontact', value=1, min=0.01, max=1e3)  # value times 1e5
-initialParameters.add('n0', value=10, min=0, max=1e3)  # value times 1e9
-initialParameters.add('vdirac', value=60, min=55, max=65) # in volts
+initialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
+initialParameters.add('rcontact', value=10, min=0.1, max=1e2)  # value times 1e5
+initialParameters.add('n0', value=1e3, min=1e2, max=1e6)  # value times 1e6
+initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
