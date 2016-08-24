@@ -1,5 +1,4 @@
 import glob
-import logging
 import os
 
 import lmfit
@@ -7,178 +6,55 @@ import matplotlib.pyplot as pyplot
 import numpy
 import pandas
 
-# TODO: including current error - weighted least squares?
-
-# TODO write all necessary dependencies or smth like gradle in java -
-# TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
-
-#############
-# Constants
-#############
-
-# Flag for correlation charts
-correlationCharts = False
-
-# sample length/width, unitless - default value
 sampleDimension = 6
-# electron charge in [C]
-echarge = 1.6021766208 * 1e-19
-# vacuum permittivity in [F/m]
-epsilonZero = 8.854187817 * 1e-12  # *(1e-2)  to make F/cm from F/m
-# relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
+echarge = 1
+epsilonZero = 8.854187817
 epsilon = 3.9
-# oxidant thickness in [m]
-tox = 285 * 1e-9  # *1e2 to make [cm]
-# capacitance of the oxidant on the gate, per unit of surface area
-cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters
-
-#############
-
-# Prepare logger
-LOGGER = logging.getLogger('FITTER')
-LOGGER.setLevel(logging.INFO)
-
-handler = logging.FileHandler('fitter.log')
-handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-
-LOGGER.addHandler(handler)
-
-# Reads data from a file and cuts it off at a specific place
+tox = 285
+cox = epsilon * epsilonZero / tox *1e3
 
 
-def readData(filename):
-    with open(filename) as dataFile:
-        data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
-        voltages = numpy.array(data[:, 0])
-        cutOffIndex = 0
-        # cut off data not used for fitting
-        for index in range(len(voltages)):
-            if voltages[index] > 0:
-                cutOffIndex = index
-                break
-        # choose a subset of data
-        voltages = numpy.array(data[cutOffIndex:, 0])
-        currents = numpy.array(data[cutOffIndex:, 1])
-        currentsErr = numpy.array(data[cutOffIndex:, 2])
-
-        resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
-        # to make kiloOhms
-        scaledResistance = resistance/1e5
-        return voltages, currents, currentsErr, scaledResistance
-
-
-# TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
-    # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK!
-    return 2 * rcontact + \
-        (sampleDimension /
-            (numpy.sqrt((n0*1e9)**2 + (cox * 1e-4 * (voltages - vdirac) / echarge)**2) * echarge * mobility*1e2))\
-        / 1e5  # to make kiloOhms
+    return 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
 
-
-def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
-    #x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
-    #x2, y2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], trace[secondParameter]['prob']
-    #pyplot.figure()
-    #pyplot.scatter(x, y, c=prob, s=30)
-    #pyplot.scatter(x2, y2, c=prob2, s=30)
-    #pyplot.xlabel(firstParameter)
-    #pyplot.ylabel(secondParameter)
-
-    x1, y1, prob1 = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], \
-                    trace[firstParameter]['prob']
-    y2, x2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], \
-                    trace[secondParameter]['prob']
-
-    pyplot.figure()
-    pyplot.scatter(x1, y1, c=prob1, s=30)
-    pyplot.scatter(x2, y2, c=prob2, s=30)
-    ax = pyplot.gca()  # please label your axes!
-    ax.set_xlabel(firstParameter)
-    ax.set_ylabel(secondParameter)
-    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation_'+firstParameter+'_'+secondParameter))
-
-    fig = pyplot.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x1, y1, prob1)
-    ax.scatter(x2, y2, prob2)
-    ax.set_xlabel(firstParameter)
-    ax.set_ylabel(secondParameter)
-    ax.set_zlabel('sigma')
-    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
-
-
-def plotFigures(initialParameters, fileName, resultPath):
-
-    resultName = os.path.split(os.path.splitext(fileName)[0])[1]
-    voltages, currents, currentsErr, resistance = readData(fileName)
-
-    # fitting to data using leastsq method
-    gmod = lmfit.Model(model)
-    result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
-    if result.chisqr > 100:
-        LOGGER.log(logging.ERROR, msg='Too big error in file: '+resultName)
-        LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
-        LOGGER.log(logging.ERROR, msg=str(result.params))
-
-    # check if directory exists, create if needed
-    directory = os.path.dirname(resultPath)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    # saving fit result to a text file
-    with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
-        fitResult.write(result.fit_report())
-    # TODO remove
-    print(lmfit.fit_report(result, min_correl=0.1))
-    pyplot.figure()
-    scatter = pyplot.scatter(voltages, resistance)
-    initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
-    bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
-    pyplot.xlabel('Gate voltage [ V ]')
-    pyplot.ylabel('Resistance [ M\u2126 ]')
-    pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
-    pyplot.text(-8, 152, 'V_DS: 10 V')
-    pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend([scatter, initFitLine, bestFitLine], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
-    pyplot.savefig(os.path.join(resultPath, resultName))
-    # TODO fix charts
-    # Plot correlation charts
-    if correlationCharts:
-        LOGGER.info("Creating correlation charts")
-        try:
-            ci, trace = result.conf_interval(sigmas=[0.68, 0.95], trace=True, verbose=False)
-
-            plotCorrelationChart(trace, 'n0', 'vdirac', resultPath, resultName)
-            plotCorrelationChart(trace, 'mobility', 'n0', resultPath, resultName)
-            plotCorrelationChart(trace, 'mobility', 'rcontact', resultPath, resultName)
-            plotCorrelationChart(trace, 'mobility', 'vdirac', resultPath, resultName)
-            plotCorrelationChart(trace, 'rcontact', 'n0', resultPath, resultName)
-            plotCorrelationChart(trace, 'rcontact', 'vdirac', resultPath, resultName)
-        except:
-            LOGGER.error("Could not create charts for "+resultName)
-        LOGGER.info("Finished creating correlation charts")
-
-
-# set initial parameters with bounds
 initialParameters = lmfit.Parameters()
-initialParameters.add('mobility', value=10, min=1, max=2e2)  # value times 1e2
-initialParameters.add('rcontact', value=1, min=0.01, max=1e3)  # value times 1e5
-initialParameters.add('n0', value=10, min=0, max=1e3)  # value times 1e9
-initialParameters.add('vdirac', value=60, min=55, max=65) # in volts
-
-# system promts for data input/output
-filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
-resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
-sampleDimension = int(input("Write the sample dimensions (length/width, default: 6): ") or 6)
-correlationCharts = bool(input("Plot correlation charts? (True/False, default: False): ") or False)
-
-LOGGER.info('Script starting')
+initialParameters.add('mobility', value=1e3, min=1e2, max=2e4)
+initialParameters.add('rcontact', value=1e4, min=1e3, max=1e6)
+initialParameters.add('n0', value=1e10, min=1e8, max=1e12)
+initialParameters.add('vdirac', value=60, min=55, max=65)
 
 # Iterate over every file with .txt extension
-for infile in glob.glob(os.path.join(filePath, '*.txt')):
-    plotFigures(initialParameters, infile, resultPath)
+for infile in glob.glob(os.path.join(os.path.curdir, '*.txt')):
+    with open(infile) as dataFile:
+        data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
+        voltages = numpy.array(data[:, 0])
+        currents = numpy.array(data[:, 1])
+        currentsErr = numpy.array(data[:, 2])
+        resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
 
-LOGGER.info('Script finished')
+        # fitting to data using leastsq method
+        gmod = lmfit.Model(model)
+        result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
+
+        # check if directory exists, create if needed
+        resultPath=os.path.curdir+'/results/'
+        directory = os.path.dirname(resultPath)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        # saving fit result to a text file
+        resultName = os.path.split(os.path.splitext(infile)[0])[1]
+        with open(os.path.join(resultPath, resultName + '_Fit.txt'), "w+") as fitResult:
+            fitResult.write(result.fit_report())
+        # TODO remove
+        print(lmfit.fit_report(result, min_correl=0.1))
+        pyplot.figure()
+        scatter = pyplot.scatter(voltages, resistance)
+        initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
+        bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
+        pyplot.xlabel('Gate voltage [ V ]')
+        pyplot.ylabel('Resistance [ M\u2126 ]')
+        pyplot.text(-8, 167, 'Sample dimension [length/width]: ' + str(sampleDimension))
+        pyplot.text(-8, 152, 'V_DS: 10 V')
+        pyplot.title('Charakterystyka przejsciowa')
+        pyplot.legend([scatter, initFitLine, bestFitLine], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
+        pyplot.savefig(os.path.join(resultPath, resultName))
