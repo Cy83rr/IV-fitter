@@ -2,7 +2,6 @@ import glob
 import os
 
 import lmfit
-import matplotlib.pyplot as pyplot
 import numpy
 import pandas
 
@@ -35,26 +34,4 @@ for infile in glob.glob(os.path.join(os.path.curdir, '*.txt')):
         # fitting to data using leastsq method
         gmod = lmfit.Model(model)
         result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
-
-        # check if directory exists, create if needed
-        resultPath=os.path.curdir+'/results/'
-        directory = os.path.dirname(resultPath)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        # saving fit result to a text file
-        resultName = os.path.split(os.path.splitext(infile)[0])[1]
-        with open(os.path.join(resultPath, resultName + '_Fit.txt'), "w+") as fitResult:
-            fitResult.write(result.fit_report())
-        # TODO remove
         print(lmfit.fit_report(result, min_correl=0.1))
-        pyplot.figure()
-        scatter = pyplot.scatter(voltages, resistance)
-        initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
-        bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
-        pyplot.xlabel('Gate voltage [ V ]')
-        pyplot.ylabel('Resistance [ M\u2126 ]')
-        pyplot.text(-8, 167, 'Sample dimension [length/width]: ' + str(sampleDimension))
-        pyplot.text(-8, 152, 'V_DS: 10 V')
-        pyplot.title('Charakterystyka przejsciowa')
-        pyplot.legend([scatter, initFitLine, bestFitLine], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
-        pyplot.savefig(os.path.join(resultPath, resultName))
