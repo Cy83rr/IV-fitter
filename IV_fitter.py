@@ -3,11 +3,11 @@ import numpy
 import pandas
 
 sampleDimension = 6
-echarge = 1
+echarge = 1.6021766208 * 1e-19
 epsilonZero = 8.854187817
 epsilon = 3.9
 tox = 285
-cox = epsilon * epsilonZero / tox *1e3
+cox = epsilon * epsilonZero / tox * 1e-3
 
 
 def model(voltages, rcontact, n0, vdirac, mobility):
@@ -16,7 +16,7 @@ def model(voltages, rcontact, n0, vdirac, mobility):
 
 initialParameters = lmfit.Parameters()
 initialParameters.add('mobility', value=1e3, min=1e2, max=2e4)
-initialParameters.add('rcontact', value=1e4, min=1e3, max=1e6)
+initialParameters.add('rcontact', value=1e5, min=1e2, max=1e8)
 initialParameters.add('n0', value=1e10, min=1e8, max=1e12)
 initialParameters.add('vdirac', value=60, min=55, max=65)
 
