@@ -22,19 +22,22 @@ correlationCharts = False
 # sample length/width, unitless - default value
 sampleDimension = 6
 # electron charge in [C]
-#echarge = 1.6021766208 * 1e-19
-echarge = 1  # set as 1 to avoid precision problems
+echarge = 1.6021766208 * 1e-19
+#echarge = 1  # set as 1 to avoid precision problems
 # vacuum permittivity in [F/m]
-#epsilonZero = 8.854187817 * 1e-12
-epsilonZero = 8.854187817   # *(1e-2)  to make F/cm from F/m
-# relative electric permittivity of the substrate: 11.68 SI, 3.9 SIO2
+epsilonZero = 8.854187817 * 1e-12 * 1e-2  # *(1e-2)  to make F/cm from F/m
+# relative electric permittivity of the substrate: 3.9 SIO2
 epsilon = 3.9
 # oxidant thickness in [m]
-#tox = 285 * 1e-9  # *1e2 to make [cm]
-tox = 285
+tox = 285 * 1e-9 * 1e2  # *1e2 to make [cm]
+#tox = 285
 # capacitance of the oxidant on the gate, per unit of surface area
-cox = 1e3*epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters, 1e3 from epsilon & epsilonZero
-
+cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters, 1e3 from epsilon & epsilonZero
+# w f/cm^2
+#prad w A
+# mi CM2/Vm
+#no w cm-2
+#do 30 v sporobowac dopasowac
 #############
 
 # Prepare logger
@@ -58,10 +61,10 @@ def readData(filename):
         voltages = numpy.array(data[:, 0])
         cutOffIndex = 0
         # cut off data not used for fitting
-        for index in range(len(voltages)):
-            if voltages[index] > 0:
-                cutOffIndex = index
-                break
+        #for index in range(len(voltages)):
+        #    if voltages[index] > 0:
+        #        cutOffIndex = index
+        #        break
         # choose a subset of data
         voltages = numpy.array(data[cutOffIndex:, 0])
         currents = numpy.array(data[cutOffIndex:, 1])
@@ -70,7 +73,7 @@ def readData(filename):
         resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
         # to make kiloOhms
         scaledResistance = resistance/1e5
-        return voltages, currents, currentsErr, scaledResistance
+        return voltages, currents, currentsErr, resistance
 
 
 # TODO check units!
@@ -78,8 +81,7 @@ def model(voltages, rcontact, n0, vdirac, mobility):
     # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK!
     return 2 * rcontact + \
         (sampleDimension /
-            (numpy.sqrt((n0 * 1e6)**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))\
-        / 1e5  # to make kiloOhms
+            (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))  # to make kiloOhms
 
 
 def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
@@ -134,8 +136,6 @@ def plotFigures(initialParameters, fileName, resultPath):
     # saving fit result to a text file
     with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
-    # TODO remove
-    print(lmfit.fit_report(result, min_correl=0.1))
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
@@ -168,8 +168,8 @@ def plotFigures(initialParameters, fileName, resultPath):
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
 initialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
-initialParameters.add('rcontact', value=10, min=0.1, max=1e2)  # value times 1e5
-initialParameters.add('n0', value=1e3, min=1e2, max=1e6)  # value times 1e6
+initialParameters.add('rcontact', value=3e3, min=1e1, max=1e8)  # value times 1e5
+initialParameters.add('n0', value=1e9, min=1e8, max=1e12)  # value times 1e6
 initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
 
 # system promts for data input/output
