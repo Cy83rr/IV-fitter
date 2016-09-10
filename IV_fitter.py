@@ -76,12 +76,8 @@ def readData(filename):
         return voltages, currents, currentsErr, resistance
 
 
-# TODO check units!
 def model(voltages, rcontact, n0, vdirac, mobility):
-    # 1e4 and 1e-4 is for converting to square centimeters --> IS IT? CHECK!
-    return 2 * rcontact + \
-        (sampleDimension /
-            (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))  # to make kiloOhms
+    return 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))  # to make kiloOhms
 
 
 def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
@@ -116,14 +112,36 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
+def residual(params, voltages, resistance, resistanceError):
+    n0 = params['n0']
+    vdirac = params['vdirac']
+    mobility = params['mobility']
+    rcontact = params['rcontact']
+
+    theory1 = float(2 * rcontact)
+    theory2 = float(sampleDimension)
+    theory3= float(n0**2)
+    theory4= float(cox / echarge)
+    theory5= voltages - vdirac
+
+    theory6= numpy.sqrt(theory3 + theory4*theory5)
+    theory7= echarge * mobility
+    theory = theory1 + theory2/theory6/theory7
+
+    return (resistance-theory)/resistanceError
+
+
 def plotFigures(initialParameters, fileName, resultPath):
 
     resultName = os.path.split(os.path.splitext(fileName)[0])[1]
     voltages, currents, currentsErr, resistance = readData(fileName)
-
+    resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
+    resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
+    resitanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
     # fitting to data using leastsq method
-    gmod = lmfit.Model(model)
-    result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
+    #gmod = lmfit.Model(model)
+    #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
+    result = lmfit.minimize(residual, initialParameters, args=(voltages, resistance, resitanceError))
     if result.chisqr > 100:
         LOGGER.log(logging.ERROR, msg='Too big error in file: '+resultName)
         LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
