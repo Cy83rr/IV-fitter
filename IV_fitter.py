@@ -2,13 +2,11 @@ import glob
 import logging
 import os
 
-import lmfit
 import matplotlib.pyplot as pyplot
 import numpy
 import pandas
 from scipy.optimize import curve_fit
 
-# TODO: including current error - weighted least squares?
 
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
@@ -80,51 +78,9 @@ def readData(filename):
 def model(voltages, rcontact, n0, vdirac, mobility):
     return 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))  # to make kiloOhms
 
-
-def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
-    #x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
-    #x2, y2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], trace[secondParameter]['prob']
-    #pyplot.figure()
-    #pyplot.scatter(x, y, c=prob, s=30)
-    #pyplot.scatter(x2, y2, c=prob2, s=30)
-    #pyplot.xlabel(firstParameter)
-    #pyplot.ylabel(secondParameter)
-
-    x1, y1, prob1 = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], \
-                    trace[firstParameter]['prob']
-    y2, x2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], \
-                    trace[secondParameter]['prob']
-
-    pyplot.figure()
-    pyplot.scatter(x1, y1, c=prob1, s=30)
-    pyplot.scatter(x2, y2, c=prob2, s=30)
-    ax = pyplot.gca()  # please label your axes!
-    ax.set_xlabel(firstParameter)
-    ax.set_ylabel(secondParameter)
-    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation_'+firstParameter+'_'+secondParameter))
-
-    fig = pyplot.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x1, y1, prob1)
-    ax.scatter(x2, y2, prob2)
-    ax.set_xlabel(firstParameter)
-    ax.set_ylabel(secondParameter)
-    ax.set_zlabel('sigma')
-    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
-
-
 def residual(voltages, mobility, rcontact, n0, vdirac):
 
-    theory1 = numpy.float64(2 * rcontact)
-    theory2 = numpy.float64(sampleDimension)
-    theory3= numpy.float64(n0**2)
-    theory4= numpy.float64(cox / echarge)
-    theory5= voltages - numpy.float64(vdirac)
-
-    theory65= theory3 + theory4*theory5
-    theory6= numpy.sqrt( theory65 )
-    theory7= echarge * numpy.float64(mobility)
-    theory = theory1 + theory2/theory6/theory7
+    theory = 2*rcontact + sampleDimension/(numpy.sqrt((n0*echarge)**2+(cox*(voltages-vdirac))**2)*mobility)
     return theory
 
 
@@ -136,13 +92,11 @@ def plotFigures(initialParameters, fileName, resultPath):
     resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
     resitanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
     # fitting to data using leastsq method
-    gmod = lmfit.Model(model)
-    #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
 
-    #result = lmfit.minimize(residual, initialParameters, args=(voltages,), kws={'resistance':resistance, 'resistanceError':resitanceError})
-    best_parameters, convariance = curve_fit(residual, voltages, resistance, sigma=resitanceError,
+    best_parameters, covariance = curve_fit(residual, voltages, resistance, sigma=resitanceError,
                                              p0=initialParameters)
-
+    print("parameters:", best_parameters)
+    print("covariance:", covariance)
     # check if directory exists, create if needed
     directory = os.path.dirname(resultPath)
     if not os.path.exists(directory):
@@ -154,8 +108,6 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
-    #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
-    #bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
     bestFitLine, = pyplot.plot(voltages, residual(voltages, best_parameters[0], best_parameters[1], best_parameters[2], best_parameters[3]), 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
@@ -166,12 +118,8 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.savefig(os.path.join(resultPath, resultName))
 
 
-# set initial parameters with bounds
-#initialParameters = lmfit.Parameters()
-#nitialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
-#initialParameters.add('rcontact', value=3e5, min=1e1, max=1e8)  # value times 1e5
-#initialParameters.add('n0', value=1e9, min=1e7, max=1e13)  # value times 1e6
-#initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
+# set initial parameters - mobility, rcontact, n0, vdirac
+
 initialParameters = numpy.array([1e3, 1e3, 1e10, 58])
 
 # system promts for data input/output
