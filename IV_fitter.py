@@ -15,9 +15,6 @@ from scipy.optimize import curve_fit
 # Constants
 #############
 
-# Flag for correlation charts
-correlationCharts = False
-
 # sample length/width, unitless - default value
 sampleDimension = 6
 # electron charge in [C]
@@ -37,6 +34,7 @@ cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centime
 # mi CM2/Vm
 #no w cm-2
 #do 30 v sporobowac dopasowac
+# poszukac chi2 minimization in scipy
 #############
 
 # Prepare logger
@@ -75,12 +73,9 @@ def readData(filename):
         return voltages, currents, currentsErr, resistance
 
 
-def model(voltages, rcontact, n0, vdirac, mobility):
-    return 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))  # to make kiloOhms
-
 def residual(voltages, mobility, rcontact, n0, vdirac):
 
-    theory = 2*rcontact + sampleDimension/(numpy.sqrt((n0*echarge)**2+(cox*(voltages-vdirac))**2)*mobility)
+    theory = 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))  # to make kiloOhms
     return theory
 
 
@@ -107,26 +102,25 @@ def plotFigures(initialParameters, fileName, resultPath):
     #    fitResult.write(convariance)
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
+    initFitLine, = pyplot.plot(voltages, residual(voltages, initialParameters[0], initialParameters[1], initialParameters[2], initialParameters[3]), 'k--')
     bestFitLine, = pyplot.plot(voltages, residual(voltages, best_parameters[0], best_parameters[1], best_parameters[2], best_parameters[3]), 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
     pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
     pyplot.text(-8, 152, 'V_DS: 10 V')
     pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend([scatter, bestFitLine], ['Data', 'Best Fit'], loc='upper left')
+    pyplot.legend([scatter, bestFitLine, initFitLine], ['Data', 'Best Fit', 'Init fit'], loc='upper left')
     pyplot.savefig(os.path.join(resultPath, resultName))
 
 
 # set initial parameters - mobility, rcontact, n0, vdirac
 
-initialParameters = numpy.array([1e3, 1e3, 1e10, 58])
+initialParameters = numpy.array([3e3, 1e5, 1e12, 60])
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Write the sample dimensions (length/width, default: 6): ") or 6)
-correlationCharts = bool(input("Plot correlation charts? (True/False, default: False): ") or False)
 
 LOGGER.info('Script starting')
 
