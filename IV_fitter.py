@@ -113,7 +113,7 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
-def residual(voltages, n0, vdirac, mobility, rcontact):
+def residual(voltages, mobility, rcontact, n0, vdirac):
 
     theory1 = numpy.float64(2 * rcontact)
     theory2 = numpy.float64(sampleDimension)
@@ -140,7 +140,8 @@ def plotFigures(initialParameters, fileName, resultPath):
     #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
 
     #result = lmfit.minimize(residual, initialParameters, args=(voltages,), kws={'resistance':resistance, 'resistanceError':resitanceError})
-    best_parameters, convariance = curve_fit(residual, voltages, resistance, p0=initialParameters, bounds=([10.0, 100.0, 1e7, 55.0], [3e4, 3e8, 1e13, 65.0]))
+    best_parameters, convariance = curve_fit(residual, voltages, resistance, sigma=resitanceError,
+                                             p0=initialParameters)
 
     # check if directory exists, create if needed
     directory = os.path.dirname(resultPath)
