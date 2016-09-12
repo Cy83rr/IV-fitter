@@ -6,6 +6,7 @@ import lmfit
 import matplotlib.pyplot as pyplot
 import numpy
 import pandas
+from scipy.optimize import curve_fit
 
 # TODO: including current error - weighted least squares?
 
@@ -112,17 +113,7 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
-def residual(params, voltages, resistance=None, resistanceError=None):
-    if isinstance(params, lmfit.Parameters):
-        n0 = params['n0']
-        vdirac = params['vdirac']
-        mobility = params['mobility']
-        rcontact = params['rcontact']
-    else:
-        n0 = params[0]
-        vdirac = params[1]
-        mobility = params[2]
-        rcontact = params[3]
+def residual(voltages, n0, vdirac, mobility, rcontact):
 
     theory1 = numpy.float64(2 * rcontact)
     theory2 = numpy.float64(sampleDimension)
@@ -134,11 +125,7 @@ def residual(params, voltages, resistance=None, resistanceError=None):
     theory6= numpy.sqrt( theory65 )
     theory7= echarge * numpy.float64(mobility)
     theory = theory1 + theory2/theory6/theory7
-    if resistance is None:
-        return theory
-    if resistanceError is None:
-        return resistance - theory
-    return (resistance-theory)/resistanceError
+    return theory
 
 
 def plotFigures(initialParameters, fileName, resultPath):
@@ -152,25 +139,23 @@ def plotFigures(initialParameters, fileName, resultPath):
     gmod = lmfit.Model(model)
     #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
 
-    result = lmfit.minimize(residual, initialParameters, args=(voltages,), kws={'resistance':resistance, 'resistanceError':resitanceError})
-    if result.chisqr > 100:
-        LOGGER.log(logging.ERROR, msg='Too big error in file: '+resultName)
-        LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
-        LOGGER.log(logging.ERROR, msg=str(result.params))
+    #result = lmfit.minimize(residual, initialParameters, args=(voltages,), kws={'resistance':resistance, 'resistanceError':resitanceError})
+    best_parameters, convariance = curve_fit(residual, voltages, resistance, p0=initialParameters, bounds=([10.0, 100.0, 1e7, 55.0], [3e4, 3e8, 1e13, 65.0]))
 
     # check if directory exists, create if needed
     directory = os.path.dirname(resultPath)
     if not os.path.exists(directory):
         os.makedirs(directory)
     # saving fit result to a text file
-    with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
-        fitResult.write(lmfit.fit_report(result))
+    #with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
+    #    fitResult.write(best_parameters)
+    #    fitResult.write(convariance)
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
     #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
     #bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
-    bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
+    bestFitLine, = pyplot.plot(voltages, residual(voltages, best_parameters[0], best_parameters[1], best_parameters[2], best_parameters[3]), 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
     pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
@@ -178,30 +163,15 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.title('Charakterystyka przejsciowa')
     pyplot.legend([scatter, bestFitLine], ['Data', 'Best Fit'], loc='upper left')
     pyplot.savefig(os.path.join(resultPath, resultName))
-    # TODO fix charts
-    # Plot correlation charts
-    if correlationCharts:
-        LOGGER.info("Creating correlation charts")
-        try:
-            ci, trace = result.conf_interval(sigmas=[0.68, 0.95], trace=True, verbose=False)
-
-            plotCorrelationChart(trace, 'n0', 'vdirac', resultPath, resultName)
-            plotCorrelationChart(trace, 'mobility', 'n0', resultPath, resultName)
-            plotCorrelationChart(trace, 'mobility', 'rcontact', resultPath, resultName)
-            plotCorrelationChart(trace, 'mobility', 'vdirac', resultPath, resultName)
-            plotCorrelationChart(trace, 'rcontact', 'n0', resultPath, resultName)
-            plotCorrelationChart(trace, 'rcontact', 'vdirac', resultPath, resultName)
-        except:
-            LOGGER.error("Could not create charts for "+resultName)
-        LOGGER.info("Finished creating correlation charts")
 
 
 # set initial parameters with bounds
-initialParameters = lmfit.Parameters()
-initialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
-initialParameters.add('rcontact', value=3e5, min=1e1, max=1e8)  # value times 1e5
-initialParameters.add('n0', value=1e9, min=1e7, max=1e13)  # value times 1e6
-initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
+#initialParameters = lmfit.Parameters()
+#nitialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
+#initialParameters.add('rcontact', value=3e5, min=1e1, max=1e8)  # value times 1e5
+#initialParameters.add('n0', value=1e9, min=1e7, max=1e13)  # value times 1e6
+#initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
+initialParameters = numpy.array([1e3, 1e3, 1e10, 58])
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
