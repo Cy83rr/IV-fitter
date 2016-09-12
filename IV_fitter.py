@@ -61,14 +61,14 @@ def readData(filename):
         voltages = numpy.array(data[:, 0])
         cutOffIndex = 0
         # cut off data not used for fitting
-        #for index in range(len(voltages)):
-        #    if voltages[index] > 0:
-        #        cutOffIndex = index
-        #        break
+        for index in range(len(voltages)):
+            if voltages[index] > 30:
+                cutOffIndex = index
+                break
         # choose a subset of data
-        voltages = numpy.array(data[cutOffIndex:, 0])
-        currents = numpy.array(data[cutOffIndex:, 1])
-        currentsErr = numpy.array(data[cutOffIndex:, 2])
+        voltages = numpy.array(data[:cutOffIndex, 0])
+        currents = numpy.array(data[:cutOffIndex, 1])
+        currentsErr = numpy.array(data[:cutOffIndex, 2])
 
         resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
         # to make kiloOhms
@@ -112,22 +112,32 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
-def residual(params, voltages, resistance, resistanceError):
-    n0 = params['n0']
-    vdirac = params['vdirac']
-    mobility = params['mobility']
-    rcontact = params['rcontact']
+def residual(params, voltages, resistance=None, resistanceError=None):
+    if isinstance(params, lmfit.Parameters):
+        n0 = params['n0']
+        vdirac = params['vdirac']
+        mobility = params['mobility']
+        rcontact = params['rcontact']
+    else:
+        n0 = params[0]
+        vdirac = params[1]
+        mobility = params[2]
+        rcontact = params[3]
 
-    theory1 = float(2 * rcontact)
-    theory2 = float(sampleDimension)
-    theory3= float(n0**2)
-    theory4= float(cox / echarge)
-    theory5= voltages - vdirac
+    theory1 = numpy.float64(2 * rcontact)
+    theory2 = numpy.float64(sampleDimension)
+    theory3= numpy.float64(n0**2)
+    theory4= numpy.float64(cox / echarge)
+    theory5= voltages - numpy.float64(vdirac)
 
-    theory6= numpy.sqrt(theory3 + theory4*theory5)
-    theory7= echarge * mobility
+    theory65= theory3 + theory4*theory5
+    theory6= numpy.sqrt( theory65 )
+    theory7= echarge * numpy.float64(mobility)
     theory = theory1 + theory2/theory6/theory7
-
+    if resistance is None:
+        return theory
+    if resistanceError is None:
+        return resistance - theory
     return (resistance-theory)/resistanceError
 
 
@@ -139,9 +149,10 @@ def plotFigures(initialParameters, fileName, resultPath):
     resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
     resitanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
     # fitting to data using leastsq method
-    #gmod = lmfit.Model(model)
+    gmod = lmfit.Model(model)
     #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
-    result = lmfit.minimize(residual, initialParameters, args=(voltages, resistance, resitanceError))
+
+    result = lmfit.minimize(residual, initialParameters, args=(voltages,), kws={'resistance':resistance, 'resistanceError':resitanceError})
     if result.chisqr > 100:
         LOGGER.log(logging.ERROR, msg='Too big error in file: '+resultName)
         LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
@@ -153,17 +164,19 @@ def plotFigures(initialParameters, fileName, resultPath):
         os.makedirs(directory)
     # saving fit result to a text file
     with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
-        fitResult.write(result.fit_report())
+        fitResult.write(lmfit.fit_report(result))
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
-    bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
+    #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
+    #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
+    #bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
+    bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
     pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
     pyplot.text(-8, 152, 'V_DS: 10 V')
     pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend([scatter, initFitLine, bestFitLine], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
+    pyplot.legend([scatter, bestFitLine], ['Data', 'Best Fit'], loc='upper left')
     pyplot.savefig(os.path.join(resultPath, resultName))
     # TODO fix charts
     # Plot correlation charts
@@ -186,8 +199,8 @@ def plotFigures(initialParameters, fileName, resultPath):
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
 initialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
-initialParameters.add('rcontact', value=3e3, min=1e1, max=1e8)  # value times 1e5
-initialParameters.add('n0', value=1e9, min=1e8, max=1e12)  # value times 1e6
+initialParameters.add('rcontact', value=3e5, min=1e1, max=1e8)  # value times 1e5
+initialParameters.add('n0', value=1e9, min=1e7, max=1e13)  # value times 1e6
 initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
 
 # system promts for data input/output
