@@ -7,7 +7,6 @@ import numpy
 import pandas
 from scipy.optimize import curve_fit
 
-
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
 
@@ -50,13 +49,18 @@ handler.setFormatter(formatter)
 LOGGER.addHandler(handler)
 
 # Reads data from a file and cuts it off at a specific place
-
+resistance = numpy.array([])
+resistanceError = numpy.array([])
+rescale = 1
 
 def readData(filename):
     with open(filename) as dataFile:
         data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
         voltages = numpy.array(data[:, 0])
         cutOffIndex = 0
+        global resistance
+        global resistanceError
+        global rescale
         # cut off data not used for fitting
         for index in range(len(voltages)):
             if voltages[index] > 30:
@@ -66,30 +70,35 @@ def readData(filename):
         voltages = numpy.array(data[:cutOffIndex, 0])
         currents = numpy.array(data[:cutOffIndex, 1])
         currentsErr = numpy.array(data[:cutOffIndex, 2])
+        resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
+        resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
+        resistanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
 
         resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
-        # to make kiloOhms
-        scaledResistance = resistance/1e5
-        return voltages, currents, currentsErr, resistance
+        rescale=resistance.max()
+
+
+        resistance = resistance/rescale
+        resistanceError = resistanceError/rescale
+        return voltages, currents, resistanceError, resistance
 
 
 def residual(voltages, mobility, rcontact, n0, vdirac):
 
-    theory = 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))  # to make kiloOhms
-    return theory
+    theory = 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
+    chisq=numpy.sum(((resistance - theory)/resistanceError)**2)
+    return chisq
 
 
 def plotFigures(initialParameters, fileName, resultPath):
 
     resultName = os.path.split(os.path.splitext(fileName)[0])[1]
-    voltages, currents, currentsErr, resistance = readData(fileName)
-    resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
-    resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
-    resitanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
+    voltages, currents, resitanceError, resistance = readData(fileName)
     # fitting to data using leastsq method
 
     best_parameters, covariance = curve_fit(residual, voltages, resistance, sigma=resitanceError,
                                              p0=initialParameters)
+    mobility, rcontact, n0, vdirac = best_parameters * rescale
     print("parameters:", best_parameters)
     print("covariance:", covariance)
     # check if directory exists, create if needed
@@ -103,7 +112,7 @@ def plotFigures(initialParameters, fileName, resultPath):
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     initFitLine, = pyplot.plot(voltages, residual(voltages, initialParameters[0], initialParameters[1], initialParameters[2], initialParameters[3]), 'k--')
-    bestFitLine, = pyplot.plot(voltages, residual(voltages, best_parameters[0], best_parameters[1], best_parameters[2], best_parameters[3]), 'r-')
+    bestFitLine, = pyplot.plot(voltages, residual(voltages, mobility, rcontact, n0, vdirac), 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
     pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
@@ -116,6 +125,7 @@ def plotFigures(initialParameters, fileName, resultPath):
 # set initial parameters - mobility, rcontact, n0, vdirac
 
 initialParameters = numpy.array([3e3, 1e5, 1e12, 60])
+#initialParameters = numpy.array([1, 1, 1, 1])
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
