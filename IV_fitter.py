@@ -1,24 +1,16 @@
-import glob
-import logging
-import os
-
 import matplotlib.pyplot as pyplot
 import numpy
 import pandas
-from scipy.optimize import curve_fit
-
-# TODO write all necessary dependencies or smth like gradle in java -
-# TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
+from scipy.optimize import minimize
 
 #############
 # Constants
 #############
 
-# sample length/width, unitless - default value
+# sample length/width, unitless
 sampleDimension = 6
 # electron charge in [C]
 echarge = 1.6021766208 * 1e-19
-#echarge = 1  # set as 1 to avoid precision problems
 # vacuum permittivity in [F/m]
 epsilonZero = 8.854187817 * 1e-12 * 1e-2  # *(1e-2)  to make F/cm from F/m
 # relative electric permittivity of the substrate: 3.9 SIO2
@@ -33,109 +25,72 @@ cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centime
 # mi CM2/Vm
 #no w cm-2
 #do 30 v sporobowac dopasowac
-# poszukac chi2 minimization in scipy
+
 #############
-
-# Prepare logger
-LOGGER = logging.getLogger('FITTER')
-LOGGER.setLevel(logging.INFO)
-
-handler = logging.FileHandler('fitter.log')
-handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-
-LOGGER.addHandler(handler)
 
 # Reads data from a file and cuts it off at a specific place
 resistance = numpy.array([])
-resistanceError = numpy.array([])
+voltages = numpy.array([])
+resistance_error = numpy.array([])
+currents = numpy.array([])
 rescale = 1
 
-def readData(filename):
-    with open(filename) as dataFile:
-        data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
-        voltages = numpy.array(data[:, 0])
-        cutOffIndex = 0
-        global resistance
-        global resistanceError
-        global rescale
-        # cut off data not used for fitting
-        for index in range(len(voltages)):
-            if voltages[index] > 30:
-                cutOffIndex = index
-                break
-        # choose a subset of data
-        voltages = numpy.array(data[:cutOffIndex, 0])
-        currents = numpy.array(data[:cutOffIndex, 1])
-        currentsErr = numpy.array(data[:cutOffIndex, 2])
-        resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
-        resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
-        resistanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
+with open("testData.txt") as dataFile:
+    data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
+    voltages = numpy.array(data[:, 0])
+    cutOffIndex = 0
+    # cut off data not used for fitting
+    for index in range(len(voltages)):
+        if voltages[index] > 30:
+            cutOffIndex = index
+            break
+    # choose a subset of data
+    voltages = numpy.array(data[:cutOffIndex, 0])
+    currents = numpy.array(data[:cutOffIndex, 1])
+    currentsErr = numpy.array(data[:cutOffIndex, 2])
+    resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
+    resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
+    resistance_error = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
 
-        resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
-        rescale=resistance.max()
+    resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
+    rescale = resistance.max()
 
+    resistance = resistance / rescale
+    resistance_error = resistance_error / rescale
 
-        resistance = resistance/rescale
-        resistanceError = resistanceError/rescale
-        return voltages, currents, resistanceError, resistance
+def modelFunction(voltages, params):
+    mobility, rcontact, n0, vdirac=params
+    model = 2 * rcontact + (sampleDimension / (numpy.sqrt(n0 ** 2 + (cox * (voltages - vdirac) / echarge) ** 2) * echarge * mobility))
+    return model/rescale
 
-
-def residual(voltages, mobility, rcontact, n0, vdirac):
-
-    theory = 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
-    chisq=numpy.sum(((resistance - theory)/resistanceError)**2)
+def chisqFuction(initial_parameters):
+    theory = modelFunction(voltages, initial_parameters)
+    chisq=numpy.sum(((resistance - theory) / resistance_error) ** 2)
     return chisq
 
-
-def plotFigures(initialParameters, fileName, resultPath):
-
-    resultName = os.path.split(os.path.splitext(fileName)[0])[1]
-    voltages, currents, resitanceError, resistance = readData(fileName)
-    # fitting to data using leastsq method
-
-    best_parameters, covariance = curve_fit(residual, voltages, resistance, sigma=resitanceError,
-                                             p0=initialParameters)
-    mobility, rcontact, n0, vdirac = best_parameters * rescale
-    print("parameters:", best_parameters)
-    print("covariance:", covariance)
-    # check if directory exists, create if needed
-    directory = os.path.dirname(resultPath)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    # saving fit result to a text file
-    #with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
-    #    fitResult.write(best_parameters)
-    #    fitResult.write(convariance)
-    pyplot.figure()
-    scatter = pyplot.scatter(voltages, resistance)
-    initFitLine, = pyplot.plot(voltages, residual(voltages, initialParameters[0], initialParameters[1], initialParameters[2], initialParameters[3]), 'k--')
-    bestFitLine, = pyplot.plot(voltages, residual(voltages, mobility, rcontact, n0, vdirac), 'r-')
-    pyplot.xlabel('Gate voltage [ V ]')
-    pyplot.ylabel('Resistance [ M\u2126 ]')
-    pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
-    pyplot.text(-8, 152, 'V_DS: 10 V')
-    pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend([scatter, bestFitLine, initFitLine], ['Data', 'Best Fit', 'Init fit'], loc='upper left')
-    pyplot.savefig(os.path.join(resultPath, resultName))
-
-
 # set initial parameters - mobility, rcontact, n0, vdirac
+initial_parameters = numpy.array([3e3, 1e5, 1e12, 60])
 
-initialParameters = numpy.array([3e3, 1e5, 1e12, 60])
-#initialParameters = numpy.array([1, 1, 1, 1])
+# set bounds for fitting parameters
+bnds = ((0, 1e5), (0, None), (0, None), (50, 70))
 
-# system promts for data input/output
-filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
-resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
-sampleDimension = int(input("Write the sample dimensions (length/width, default: 6): ") or 6)
+# fitting to data using leastsq method, using minimum tolerance and displaying
+result = minimize(chisqFuction, initial_parameters, bounds=bnds, method='BFGS', options={'maxiter': 1000, 'disp': True})
+best_parameters = result.x*rescale
+print("initial parameters:", initial_parameters)
+print("parameters:", best_parameters)
+pyplot.figure()
+scatter = pyplot.scatter(voltages, resistance*rescale)
+initFitLine, = pyplot.plot(voltages, modelFunction(voltages, initial_parameters), 'k--')
+bestFitLine, = pyplot.plot(voltages, modelFunction(voltages, best_parameters), 'r-')
+pyplot.xlabel('Gate voltage [ V ]')
+pyplot.ylabel('Resistance [ M\u2126 ]')
+pyplot.legend([scatter, bestFitLine, initFitLine], ['Data', 'Best Fit', 'Init fit'], loc='upper left')
+pyplot.savefig("testData")
 
-LOGGER.info('Script starting')
 
-# Iterate over every file with .txt extension
-for infile in glob.glob(os.path.join(filePath, '*.txt')):
-    plotFigures(initialParameters, infile, resultPath)
 
-LOGGER.info('Script finished')
+
+
+
+
