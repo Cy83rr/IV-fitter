@@ -1,7 +1,7 @@
 import matplotlib.pyplot as pyplot
 import numpy
 import pandas
-from scipy.optimize import minimize
+from scipy.optimize import curve_fit
 
 #############
 # Constants
@@ -48,7 +48,7 @@ with open("testData.txt") as dataFile:
     voltages = numpy.array(data[:cutOffIndex, 0])
     currents = numpy.array(data[:cutOffIndex, 1])
     currentsErr = numpy.array(data[:cutOffIndex, 2])
-    resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
+    resistance1 = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
     resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
     resistance_error = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
 
@@ -58,8 +58,8 @@ with open("testData.txt") as dataFile:
     resistance = resistance / rescale
     resistance_error = resistance_error / rescale
 
-def modelFunction(voltages, params):
-    mobility, rcontact, n0, vdirac=params
+
+def modelFunction(voltages, mobility, rcontact, n0, vdirac):
     model = 2 * rcontact + (sampleDimension / (numpy.sqrt(n0 ** 2 + (cox * (voltages - vdirac) / echarge) ** 2) * echarge * mobility))
     return model/rescale
 
@@ -72,17 +72,18 @@ def chisqFuction(initial_parameters):
 initial_parameters = numpy.array([3e3, 1e5, 1e12, 60])
 
 # set bounds for fitting parameters
-bnds = ((0, 1e5), (0, None), (0, None), (50, 70))
+bnds = ([1e2, 1e3, 1e8, 50], [2e5, 1e10, 1e16, 70])
 
 # fitting to data using leastsq method, using minimum tolerance and displaying
-result = minimize(chisqFuction, initial_parameters, bounds=bnds, method='BFGS', options={'maxiter': 1000, 'disp': True})
-best_parameters = result.x*rescale
+result = curve_fit(modelFunction, voltages, resistance, p0=initial_parameters, bounds=bnds, sigma=resistance_error, method='dogbox')
+best_parameters = result[0]
 print("initial parameters:", initial_parameters)
 print("parameters:", best_parameters)
+print("errors: ", numpy.sqrt(numpy.diag(result[1])))
 pyplot.figure()
 scatter = pyplot.scatter(voltages, resistance*rescale)
-initFitLine, = pyplot.plot(voltages, modelFunction(voltages, initial_parameters), 'k--')
-bestFitLine, = pyplot.plot(voltages, modelFunction(voltages, best_parameters), 'r-')
+initFitLine, = pyplot.plot(voltages, modelFunction(voltages, initial_parameters[0], initial_parameters[1], initial_parameters[2], initial_parameters[3]), 'k--')
+bestFitLine, = pyplot.plot(voltages, modelFunction(voltages, best_parameters[0], best_parameters[1], best_parameters[2], best_parameters[3]), 'r-')
 pyplot.xlabel('Gate voltage [ V ]')
 pyplot.ylabel('Resistance [ M\u2126 ]')
 pyplot.legend([scatter, bestFitLine, initFitLine], ['Data', 'Best Fit', 'Init fit'], loc='upper left')
