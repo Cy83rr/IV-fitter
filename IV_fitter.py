@@ -8,6 +8,8 @@ import numpy
 import pandas
 
 # TODO: including current error - weighted least squares?
+# TODO: fix log to be more clear
+# TODO: refactor and clean code
 
 # TODO write all necessary dependencies or smth like gradle in java -
 # TODO http://docs.activestate.com/activepython/3.2/diveintopython3/html/packaging.html
@@ -73,35 +75,18 @@ def model(voltages, rcontact, n0, vdirac, mobility):
 
 
 def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
-    #x, y, prob = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], trace[firstParameter]['prob']
-    #x2, y2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], trace[secondParameter]['prob']
-    #pyplot.figure()
-    #pyplot.scatter(x, y, c=prob, s=30)
-    #pyplot.scatter(x2, y2, c=prob2, s=30)
-    #pyplot.xlabel(firstParameter)
-    #pyplot.ylabel(secondParameter)
-
     x1, y1, prob1 = trace[firstParameter][firstParameter], trace[firstParameter][secondParameter], \
                     trace[firstParameter]['prob']
     y2, x2, prob2 = trace[secondParameter][secondParameter], trace[secondParameter][firstParameter], \
                     trace[secondParameter]['prob']
 
     pyplot.figure()
-    pyplot.scatter(x1, y1, c=prob1, s=30)
-    pyplot.scatter(x2, y2, c=prob2, s=30)
+    pyplot.scatter(x1, y1)
+    pyplot.scatter(x2, y2)
     ax = pyplot.gca()  # please label your axes!
     ax.set_xlabel(firstParameter)
     ax.set_ylabel(secondParameter)
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation_'+firstParameter+'_'+secondParameter))
-
-    fig = pyplot.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x1, y1, prob1)
-    ax.scatter(x2, y2, prob2)
-    ax.set_xlabel(firstParameter)
-    ax.set_ylabel(secondParameter)
-    ax.set_zlabel('sigma')
-    pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
 def plotFigures(initialParameters, fileName, resultPath):
@@ -156,8 +141,8 @@ def plotFigures(initialParameters, fileName, resultPath):
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
 initialParameters.add('mobility', value=4e3, min=10)
-initialParameters.add('rcontact', value=3e3, min=1e1)  # value times 1e5
-initialParameters.add('n0', value=8e11, min=0)  # value times 1e6
+initialParameters.add('rcontact', value=30, min=10)  # value times 1e5
+initialParameters.add('n0', value=1e12, min=0)  # value times 1e6
 initialParameters.add('vdirac', value=50, min=0, max=70)  # in volts
 
 # system promts for data input/output
