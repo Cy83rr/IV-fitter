@@ -32,12 +32,11 @@ epsilon = 3.9
 tox = 285 * 1e-9 * 1e2  # *1e2 to make [cm]
 #tox = 285
 # capacitance of the oxidant on the gate, per unit of surface area
-cox = epsilon * epsilonZero / tox  # divided by 1e4 to convert to square centimeters, 1e3 from epsilon & epsilonZero
+cox = 7.2*1e10*echarge  # divided by 1e4 to convert to square centimeters, 1e3 from epsilon & epsilonZero
 # w f/cm^2
 #prad w A
 # mi CM2/Vm
 #no w cm-2
-#do 30 v sporobowac dopasowac
 #############
 
 # Prepare logger
@@ -59,25 +58,18 @@ def readData(filename):
     with open(filename) as dataFile:
         data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
         voltages = numpy.array(data[:, 0])
-        cutOffIndex = 0
-        # cut off data not used for fitting
-        for index in range(len(voltages)):
-            if voltages[index] > 30:
-                cutOffIndex = index
-                break
-        # choose a subset of data
-        voltages = numpy.array(data[:cutOffIndex, 0])
-        currents = numpy.array(data[:cutOffIndex, 1])
-        currentsErr = numpy.array(data[:cutOffIndex, 2])
-
-        resistance = numpy.array([a / b for a, b in zip(abs(voltages), currents)])
+        currents = numpy.array(data[:, 1])
+        currentsErr = numpy.array(data[:, 2])
+        gate_voltage=0.01
+        resistance = numpy.array(gate_voltage/currents)
         # to make kiloOhms
-        scaledResistance = resistance/1e5
         return voltages, currents, currentsErr, resistance
 
 
 def model(voltages, rcontact, n0, vdirac, mobility):
-    return 2 * rcontact + (sampleDimension / (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)) * echarge * mobility))  # to make kiloOhms
+    return 2 * rcontact + \
+        (sampleDimension /
+            (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
 
 
 def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, resultName):
@@ -112,47 +104,14 @@ def plotCorrelationChart(trace, firstParameter, secondParameter, resultPath, res
     pyplot.savefig(os.path.join(resultPath, resultName+'_correlation3D_'+firstParameter+'_'+secondParameter))
 
 
-def residual(params, voltages, resistance=None, resistanceError=None):
-    if isinstance(params, lmfit.Parameters):
-        n0 = params['n0']
-        vdirac = params['vdirac']
-        mobility = params['mobility']
-        rcontact = params['rcontact']
-    else:
-        n0 = params[0]
-        vdirac = params[1]
-        mobility = params[2]
-        rcontact = params[3]
-
-    theory1 = numpy.float64(2 * rcontact)
-    theory2 = numpy.float64(sampleDimension)
-    theory3= numpy.float64(n0**2)
-    theory4= numpy.float64(cox / echarge)
-    theory5= voltages - numpy.float64(vdirac)
-
-    theory65= theory3 + theory4*theory5
-    theory6= numpy.sqrt( theory65 )
-    theory7= echarge * numpy.float64(mobility)
-    theory = theory1 + theory2/theory6/theory7
-    if resistance is None:
-        return theory
-    if resistanceError is None:
-        return resistance - theory
-    return (resistance-theory)/resistanceError
-
-
 def plotFigures(initialParameters, fileName, resultPath):
 
     resultName = os.path.split(os.path.splitext(fileName)[0])[1]
     voltages, currents, currentsErr, resistance = readData(fileName)
-    resistance1 = numpy.array([a / b for a, b in zip(voltages, currents)])
-    resistance2 = numpy.array([a / b for a, b in zip(resistance1, currents)])
-    resitanceError = numpy.array([a * b for a, b in zip(resistance2, currentsErr)])
+
     # fitting to data using leastsq method
     gmod = lmfit.Model(model)
-    #result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
-
-    result = lmfit.minimize(residual, initialParameters, args=(voltages,), kws={'resistance':resistance, 'resistanceError':resitanceError})
+    result = gmod.fit(resistance, voltages=voltages, params=initialParameters)
     if result.chisqr > 100:
         LOGGER.log(logging.ERROR, msg='Too big error in file: '+resultName)
         LOGGER.log(logging.ERROR, msg='Chisq: '+str(result.chisqr))
@@ -164,19 +123,17 @@ def plotFigures(initialParameters, fileName, resultPath):
         os.makedirs(directory)
     # saving fit result to a text file
     with open(os.path.join(resultPath, resultName+'_Fit.txt'), "w+") as fitResult:
-        fitResult.write(lmfit.fit_report(result))
+        fitResult.write(result.fit_report())
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
-    #initFitLine, = pyplot.plot(voltages, residual(result.init_vals, voltages), 'k--')
-    #bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
-    bestFitLine, = pyplot.plot(voltages, residual(result.params, voltages), 'r-')
+    initFitLine, = pyplot.plot(voltages, result.init_fit, 'k--')
+    bestFitLine, = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ M\u2126 ]')
     pyplot.text(-8, 167, 'Sample dimension [length/width]: '+str(sampleDimension))
     pyplot.text(-8, 152, 'V_DS: 10 V')
     pyplot.title('Charakterystyka przejsciowa')
-    pyplot.legend([scatter, bestFitLine], ['Data', 'Best Fit'], loc='upper left')
+    pyplot.legend([scatter, initFitLine, bestFitLine], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
     pyplot.savefig(os.path.join(resultPath, resultName))
     # TODO fix charts
     # Plot correlation charts
@@ -198,10 +155,10 @@ def plotFigures(initialParameters, fileName, resultPath):
 
 # set initial parameters with bounds
 initialParameters = lmfit.Parameters()
-initialParameters.add('mobility', value=4e3, min=10, max=3*1e4)
-initialParameters.add('rcontact', value=3e5, min=1e1, max=1e8)  # value times 1e5
-initialParameters.add('n0', value=1e9, min=1e7, max=1e13)  # value times 1e6
-initialParameters.add('vdirac', value=58, min=55, max=65)  # in volts
+initialParameters.add('mobility', value=4e3, min=10)
+initialParameters.add('rcontact', value=3e3, min=1e1)  # value times 1e5
+initialParameters.add('n0', value=8e11, min=0)  # value times 1e6
+initialParameters.add('vdirac', value=50, min=0, max=70)  # in volts
 
 # system promts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
