@@ -53,13 +53,12 @@ def read_data(filename):
         currents = numpy.array(data[:, 1])
         currents_err = numpy.array(data[:, 2])
         resistance = numpy.array(ds_voltage / currents)
-        # TODO: sprawdzic, czy dobre bledy
         resistance_err = numpy.array(ds_voltage / (currents ** 2) * currents_err)
         return voltages, currents, resistance_err, resistance
 
 
-def model(voltages, rcontact, n0, vdirac, mobility):
-    return 2 * rcontact + \
+def model(voltages, Rc, n0, vdirac, mobility):
+    return 2 * Rc + \
         (sampleDimension /
             (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
 
@@ -73,7 +72,12 @@ def plot_correlation_chart(trace, first_parameter, second_parameter, result_path
     pyplot.figure()
     pyplot.scatter(x1, y1)
     pyplot.scatter(x2, y2)
+    pyplot.title('Wykres rozrzutu ')
     ax = pyplot.gca()  # please label your axes!
+    if first_parameter == 'mobility':
+        first_parameter = 'μ'
+    if second_parameter == 'mobility':
+        second_parameter = 'μ'
     ax.set_xlabel(first_parameter)
     ax.set_ylabel(second_parameter)
     pyplot.savefig(os.path.join(result_path, result_name + '_correlation_' + first_parameter + '_' + second_parameter))
@@ -111,12 +115,12 @@ def plot_figures(initial_parameters, filename, result_path):
     scatter = pyplot.scatter(voltages, resistance)
     init_fit_line, = pyplot.plot(voltages, result.init_fit, 'k--')
     best_fit_line, = pyplot.plot(voltages, result.best_fit, 'r-')
-    pyplot.xlabel('Gate voltage [ V ]')
-    pyplot.ylabel('Resistance [ \u2126 ]')
-    pyplot.figtext(0.15, 0.68, 'Drain/Source voltage: ' + str(ds_voltage) + 'V')
-    pyplot.figtext(0.15, 0.65, 'Sample dimension: ' + str(sampleDimension))
-    pyplot.title('Input characteristic')
-    pyplot.legend([scatter, init_fit_line, best_fit_line], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
+    pyplot.xlabel('Napięcie bramki [ V ]')
+    pyplot.ylabel('Opór [ \u2126 ]')
+    pyplot.figtext(0.15, 0.68, 'Napięcie dren-źródło: ' + str(ds_voltage) + 'V')
+    pyplot.figtext(0.15, 0.65, 'Wymiar próbki: ' + str(sampleDimension))
+    pyplot.title('Charakterystyka przejściowa')
+    pyplot.legend([scatter, init_fit_line, best_fit_line], ['Dane', 'Początkowe dopasowanie', 'Najlepsze dopasowanie'], loc='upper left')
     pyplot.savefig(os.path.join(result_path, result_name))
     # Plot correlation charts
     if correlationCharts:
@@ -129,10 +133,10 @@ def plot_figures(initial_parameters, filename, result_path):
 
             plot_correlation_chart(trace, 'n0', 'vdirac', result_path, result_name)
             plot_correlation_chart(trace, 'mobility', 'n0', result_path, result_name)
-            plot_correlation_chart(trace, 'mobility', 'rcontact', result_path, result_name)
+            plot_correlation_chart(trace, 'mobility', 'Rc', result_path, result_name)
             plot_correlation_chart(trace, 'mobility', 'vdirac', result_path, result_name)
-            plot_correlation_chart(trace, 'rcontact', 'n0', result_path, result_name)
-            plot_correlation_chart(trace, 'rcontact', 'vdirac', result_path, result_name)
+            plot_correlation_chart(trace, 'Rc', 'n0', result_path, result_name)
+            plot_correlation_chart(trace, 'Rc', 'vdirac', result_path, result_name)
         except:
             LOGGER.error("Could not create charts for "+result_name)
         LOGGER.info("Finished creating correlation charts")
@@ -141,7 +145,7 @@ def plot_figures(initial_parameters, filename, result_path):
 # set initial parameters with bounds
 init_parameters = lmfit.Parameters()
 init_parameters.add('mobility', value=4e3, min=10) # in cm^2/V*s
-init_parameters.add('rcontact', value=30, min=10)  # in ohm
+init_parameters.add('Rc', value=30, min=10)  # in ohm
 init_parameters.add('n0', value=1e12, min=0)  # in cm^-2
 init_parameters.add('vdirac', value=50, min=0)  # in volts
 
