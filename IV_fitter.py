@@ -113,8 +113,8 @@ def plot_figures(initial_parameters, filename, result_path):
     best_fit_line, = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Gate voltage [ V ]')
     pyplot.ylabel('Resistance [ \u2126 ]')
-    pyplot.text(-60, 6000, 'Sample dimension [length/width]: '+str(sampleDimension))
-    pyplot.text(-60, 5500, 'V_DS: ' + str(ds_voltage) + 'V')
+    pyplot.figtext(0.15, 0.68, 'Drain/Source voltage: ' + str(ds_voltage) + 'V')
+    pyplot.figtext(0.15, 0.65, 'Sample dimension: ' + str(sampleDimension))
     pyplot.title('Input characteristic')
     pyplot.legend([scatter, init_fit_line, best_fit_line], ['Data', 'Initial Fit', 'Best Fit'], loc='upper left')
     pyplot.savefig(os.path.join(result_path, result_name))
@@ -143,7 +143,7 @@ init_parameters = lmfit.Parameters()
 init_parameters.add('mobility', value=4e3, min=10) # in cm^2/V*s
 init_parameters.add('rcontact', value=30, min=10)  # in ohm
 init_parameters.add('n0', value=1e12, min=0)  # in cm^-2
-init_parameters.add('vdirac', value=50, min=0, max=70)  # in volts
+init_parameters.add('vdirac', value=50, min=0)  # in volts
 
 # system prompts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
