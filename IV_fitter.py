@@ -8,7 +8,8 @@ import numpy
 import pandas
 
 # TODO: refactor and clean code
-
+# TODO: korelacja z koncowych wynikow, z kazdego wykresu - inny skrypt?
+# TODO: pokazac, ze na wyjsciowych jest opor omowy - drugi skrypt?
 
 #############
 # Constants
@@ -113,14 +114,13 @@ def plot_figures(initial_parameters, filename, result_path):
         fitResult.write(result.fit_report())
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    init_fit_line, = pyplot.plot(voltages, result.init_fit, 'k--')
     best_fit_line, = pyplot.plot(voltages, result.best_fit, 'r-')
     pyplot.xlabel('Napięcie bramki [ V ]')
     pyplot.ylabel('Opór [ \u2126 ]')
     pyplot.figtext(0.15, 0.68, 'Napięcie dren-źródło: ' + str(ds_voltage) + 'V')
     pyplot.figtext(0.15, 0.65, 'Wymiar próbki: ' + str(sampleDimension))
     pyplot.title('Charakterystyka przejściowa')
-    pyplot.legend([scatter, init_fit_line, best_fit_line], ['Dane', 'Początkowe dopasowanie', 'Najlepsze dopasowanie'], loc='upper left')
+    pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
     pyplot.savefig(os.path.join(result_path, result_name))
     # Plot correlation charts
     if correlationCharts:
