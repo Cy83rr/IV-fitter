@@ -10,6 +10,8 @@ import pandas
 # TODO: refactor and clean code
 # TODO: korelacja z koncowych wynikow, z kazdego wykresu - inny skrypt?
 # TODO: pokazac, ze na wyjsciowych jest opor omowy - drugi skrypt?
+# TODO: zpaisywanie danych w taki sposob, zeby latwo bylo je obrobic
+# TODO: dodac, zeby samo uznawalo rozmiar probki? po poczatku, a1 czy A1?
 
 #############
 # Constants
@@ -64,26 +66,6 @@ def model(voltages, Rc, n0, vdirac, mobility):
             (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
 
 
-def plot_correlation_chart(trace, first_parameter, second_parameter, result_path, result_name):
-    x1, y1, prob1 = trace[first_parameter][first_parameter], trace[first_parameter][second_parameter], \
-                    trace[first_parameter]['prob']
-    y2, x2, prob2 = trace[second_parameter][second_parameter], trace[second_parameter][first_parameter], \
-                    trace[second_parameter]['prob']
-
-    pyplot.figure()
-    pyplot.scatter(x1, y1)
-    pyplot.scatter(x2, y2)
-    pyplot.title('Wykres rozrzutu ')
-    ax = pyplot.gca()  # please label your axes!
-    if first_parameter == 'mobility':
-        first_parameter = 'μ'
-    if second_parameter == 'mobility':
-        second_parameter = 'μ'
-    ax.set_xlabel(first_parameter)
-    ax.set_ylabel(second_parameter)
-    pyplot.savefig(os.path.join(result_path, result_name + '_correlation_' + first_parameter + '_' + second_parameter))
-
-
 def plot_figures(initial_parameters, filename, result_path):
 
     result_name = os.path.split(os.path.splitext(filename)[0])[1]
@@ -122,24 +104,7 @@ def plot_figures(initial_parameters, filename, result_path):
     pyplot.title('Charakterystyka przejściowa')
     pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
     pyplot.savefig(os.path.join(result_path, result_name))
-    # Plot correlation charts
-    if correlationCharts:
-        LOGGER.info("Creating correlation charts")
-        try:
-            # sigma-confidence interval for parameters- przedzial ufnosci
-            # for each sigma listed here, additional points will appear on correlation charts
-            # bigger sigma - bigger probability that the parameter is in the bounds
-            ci, trace = result.conf_interval(trace=True, verbose=False)
 
-            plot_correlation_chart(trace, 'n0', 'vdirac', result_path, result_name)
-            plot_correlation_chart(trace, 'mobility', 'n0', result_path, result_name)
-            plot_correlation_chart(trace, 'mobility', 'Rc', result_path, result_name)
-            plot_correlation_chart(trace, 'mobility', 'vdirac', result_path, result_name)
-            plot_correlation_chart(trace, 'Rc', 'n0', result_path, result_name)
-            plot_correlation_chart(trace, 'Rc', 'vdirac', result_path, result_name)
-        except:
-            LOGGER.error("Could not create charts for "+result_name)
-        LOGGER.info("Finished creating correlation charts")
 
 
 # set initial parameters with bounds
