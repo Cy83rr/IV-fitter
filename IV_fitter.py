@@ -17,8 +17,6 @@ import pandas
 # Constants
 #############
 
-# Flag for correlation charts
-correlationCharts = False
 
 # sample length/width, unitless - default value
 sampleDimension = 6
@@ -94,6 +92,14 @@ def plot_figures(initial_parameters, filename, result_path):
     # saving fit result to a text file
     with open(os.path.join(result_path, result_name + '_Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
+    fits_path=os.path.join(result_path, 'fits.txt')
+    if not os.path.exists(fits_path):
+        with open(fits_path, "w+") as all_fits:
+            all_fits.write('sample_name Rc n0 vdirac mobility')
+    with open(fits_path, "a") as all_fits:
+        parameter_values=result.best_values
+        line="\n{} {} {} {} {}".format(result_name,parameter_values.get('Rc'),parameter_values.get('n0'),parameter_values.get('vdirac'),parameter_values.get('mobility'))
+        all_fits.write(line)
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     best_fit_line, = pyplot.plot(voltages, result.best_fit, 'r-')
@@ -119,9 +125,6 @@ filePath = input("Write the path to data files (default: current directory): ") 
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Sample dimension (length/width, default: 6): ") or 6)
 ds_voltage = float(input("Drain/Source Voltage (in Volts, default: 0.01): ") or 0.01)
-correlationCharts = bool(input("Plot correlation charts? "
-                               "Warning: For many data files it might take a lot of memory! "
-                               "(True/False, default: False): ") or False)
 
 LOGGER.info('Script starting')
 
