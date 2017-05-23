@@ -1,5 +1,5 @@
 # IV-fitter
-Python script used for fitting models to IV data
+Python scripts used for fitting models to IV data
 Opis warunków, w których było testowane oprogramowanie
 **Data format** 
 Entry data is organised in two or three columns, each separated with a tabulator. As a decimal point "," is used. The first row contains names for the rows. It is possible to change those assumptions in _readData_ function. The columns are respectively: voltage, current and current measurement error.
