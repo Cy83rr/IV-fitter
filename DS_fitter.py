@@ -40,7 +40,8 @@ handler.setFormatter(formatter)
 
 LOGGER.addHandler(handler)
 
-
+# TODO different file structure, multiple series such as: U I dI I dI etc. gate voltage is in current column name
+# TODO use lists for currents and errors, iterate
 def read_data(filename):
     with open(filename) as dataFile:
         data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
@@ -95,11 +96,11 @@ def plot_figures(initial_parameters, filename, result_path):
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
     best_fit_line, = pyplot.plot(voltages, result.best_fit, 'r-')
-    pyplot.xlabel('Napięcie bramki [ V ]')
+    pyplot.xlabel('Napięcie dren-źródło [ V ]')
     pyplot.ylabel('Opór [ \u2126 ]')
-    pyplot.figtext(0.15, 0.68, 'Napięcie dren-źródło: ' + str(gate_voltage) + 'V')
+    pyplot.figtext(0.15, 0.68, 'Napięcie bramki: ' + str(gate_voltage) + 'V')
     pyplot.figtext(0.15, 0.65, 'Wymiar próbki: ' + str(sampleDimension))
-    pyplot.title('Charakterystyka przejściowa')
+    pyplot.title('Charakterystyka wyjśćiowa')
     pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
     pyplot.savefig(os.path.join(result_path, result_name))
 
