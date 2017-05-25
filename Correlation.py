@@ -6,8 +6,7 @@ import numpy
 import pandas
 import scipy.stats as stats
 
-#TODO lepszy logger
-#TODO poprawic odpalanie skryptu
+# TODO lepszy logger
 
 # Prepare logger
 LOGGER = logging.getLogger('FITTER')
@@ -43,14 +42,14 @@ def count_correl(variables):
     n0_mobility = stats.pearsonr(n0,mobility)[0]
     return rc_n0, rc_vdirac, rc_mobility, vdirac_n0, vdirac_mobility, n0_mobility
 
-# TODO: jednostki na wykresach
+
 def plot_figures(variables, correlations, result_path):
     rc, n0, vdirac, mobility = variables
     rc_n0, rc_vdirac, rc_mobility, vdirac_n0, vdirac_mobility, n0_mobility = correlations
 
     pyplot.figure()
     pyplot.scatter(rc, n0)
-    pyplot.xlabel('Opór kontaktów')
+    pyplot.xlabel('Opór kontaktów [ \u2126 ]')
     pyplot.ylabel('Koncentracja nośników')
     pyplot.figtext(0.15, 0.68, 'Współczynnik korelacji Pearsona: ' + str(rc_n0))
     pyplot.title('Wykres rozrzutu')
@@ -60,7 +59,7 @@ def plot_figures(variables, correlations, result_path):
 
     pyplot.figure()
     pyplot.scatter(rc, vdirac)
-    pyplot.xlabel('Opór kontaktów')
+    pyplot.xlabel('Opór kontaktów [ \u2126 ]')
     pyplot.ylabel('Napięcie Diraca')
     pyplot.figtext(0.15, 0.68, 'Współczynnik korelacji Pearsona: ' + str(rc_vdirac))
     pyplot.title('Wykres rozrzutu')
@@ -70,8 +69,8 @@ def plot_figures(variables, correlations, result_path):
 
     pyplot.figure()
     pyplot.scatter(rc, mobility)
-    pyplot.xlabel('Opór kontaktów')
-    pyplot.ylabel('Ruchliwość nośników')
+    pyplot.xlabel('Opór kontaktów [ \u2126 ]')
+    pyplot.ylabel('Ruchliwość nośników [cm2/Vs]')
     pyplot.figtext(0.15, 0.68, 'Współczynnik korelacji Pearsona: ' + str(rc_mobility))
     pyplot.title('Wykres rozrzutu')
     # pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
@@ -80,8 +79,8 @@ def plot_figures(variables, correlations, result_path):
 
     pyplot.figure()
     pyplot.scatter(vdirac, n0)
-    pyplot.xlabel('Napięcie Diraca')
-    pyplot.ylabel('Koncentracja nośników')
+    pyplot.xlabel('Napięcie Diraca [ V ]')
+    pyplot.ylabel('Koncentracja nośników [cm-2]')
     pyplot.figtext(0.15, 0.68, 'Współczynnik korelacji Pearsona: ' + str(vdirac_n0))
     pyplot.title('Wykres rozrzutu')
     # pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
@@ -90,8 +89,8 @@ def plot_figures(variables, correlations, result_path):
 
     pyplot.figure()
     pyplot.scatter(vdirac, mobility)
-    pyplot.xlabel('Napięcie Diraca')
-    pyplot.ylabel('Ruchliwość nośników')
+    pyplot.xlabel('Napięcie Diraca [ V ]')
+    pyplot.ylabel('Ruchliwość nośników [cm2/Vs]')
     pyplot.figtext(0.15, 0.68, 'Współczynnik korelacji Pearsona: ' + str(vdirac_mobility))
     pyplot.title('Wykres rozrzutu')
     # pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
@@ -100,17 +99,18 @@ def plot_figures(variables, correlations, result_path):
 
     pyplot.figure()
     pyplot.scatter(n0, mobility)
-    pyplot.xlabel('Koncentracja nośników')
-    pyplot.ylabel('Ruchliwość nośników')
+    pyplot.xlabel('Koncentracja nośników [cm-2]')
+    pyplot.ylabel('Ruchliwość nośników [cm2/Vs]')
     pyplot.figtext(0.15, 0.68, 'Współczynnik korelacji Pearsona: ' + str(n0_mobility))
     pyplot.title('Wykres rozrzutu')
     # pyplot.legend([scatter, best_fit_line], ['Dane', 'Dopasowanie'], loc='upper left')
     figure_name = 'Correlation_n0_mobility'
     pyplot.savefig(os.path.join(result_path, figure_name))
 
-filePath = input("Write the path and filename to corelation data (default: current directory): ") or os.path.curdir + '/results/fits.txt'
+filePath = input("Write the path and filename to correlation data (default: current directory/results/fits.txt): ") or os.path.curdir + '/results/fits.txt'
 resultPath = input("Write the path where the results will be saved(default: current directory/results): ") or os.path.curdir + '/results/'
-variables=read_data(filePath)
+LOGGER.info("Starting correlation script")
+variables = read_data(filePath)
 correlations = count_correl(variables)
 plot_figures(variables, correlations, resultPath)
 

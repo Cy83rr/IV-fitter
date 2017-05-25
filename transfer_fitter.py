@@ -8,10 +8,6 @@ import numpy
 import pandas
 
 # TODO: refactor and clean code
-# TODO: korelacja z koncowych wynikow, z kazdego wykresu - inny skrypt?
-# TODO: pokazac, ze na wyjsciowych jest opor omowy - drugi skrypt?
-# TODO: zpaisywanie danych w taki sposob, zeby latwo bylo je obrobic
-# TODO: dodac, zeby samo uznawalo rozmiar probki? po poczatku, a1 czy A1?
 
 #############
 # Constants
