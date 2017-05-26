@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+import sys
 
 import lmfit
 import matplotlib.pyplot as pyplot
@@ -32,15 +33,20 @@ cox = 7.2*1e10*echarge
 
 # Prepare logger
 LOGGER = logging.getLogger('FITTER')
-LOGGER.setLevel(logging.INFO)
+LOGGER.propagate = True
 
 handler = logging.FileHandler('fitter.log')
 handler.setLevel(logging.INFO)
 
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.ERROR)
+
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
 
 LOGGER.addHandler(handler)
+LOGGER.addHandler(console_handler)
 
 
 def read_data(filename):
@@ -92,9 +98,10 @@ def plot_figures(initial_parameters, filename, result_path):
     if not os.path.exists(fits_path):
         with open(fits_path, "w+") as all_fits:
             all_fits.write('sample_name Rc n0 vdirac mobility')
-    with open(fits_path, "a") as all_fits:
-        parameter_values=result.best_values
-        line="\n{} {} {} {} {}".format(result_name,parameter_values.get('Rc'),parameter_values.get('n0'),parameter_values.get('vdirac'),parameter_values.get('mobility'))
+    with open(fits_path, "w+") as all_fits:
+        parameter_values = result.best_values
+        line = "\n{} {} {} {} {}".format(result_name,parameter_values.get('Rc'), parameter_values.get('n0'),
+                                         parameter_values.get('vdirac'), parameter_values.get('mobility'))
         all_fits.write(line)
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
@@ -112,13 +119,13 @@ def plot_figures(initial_parameters, filename, result_path):
 # set initial parameters with bounds
 init_parameters = lmfit.Parameters()
 init_parameters.add('mobility', value=4e3, min=10) # in cm^2/V*s
-init_parameters.add('Rc', value=30, min=10)  # in ohm
-init_parameters.add('n0', value=1e12, min=0)  # in cm^-2
+init_parameters.add('Rc', value=1e3, min=10)  # in ohm
+init_parameters.add('n0', value=1e12, min=1e10)  # in cm^-2
 init_parameters.add('vdirac', value=50, min=0)  # in volts
 
 # system prompts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
-resultPath = input("Write the path where the results will be saved(default: current directory/results): ") or os.path.curdir + '/results/'
+resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Sample dimension (length/width, default: 6): ") or 6)
 ds_voltage = float(input("Drain/Source Voltage (in Volts, default: 0.01): ") or 0.01)
 
