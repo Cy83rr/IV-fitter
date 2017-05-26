@@ -8,12 +8,9 @@ import matplotlib.pyplot as pyplot
 import numpy
 import pandas
 
-# TODO: refactor and clean code
-
 #############
 # Constants
 #############
-
 
 # sample length/width, unitless - default value
 sampleDimension = 6
@@ -84,8 +81,8 @@ def plot_figures(initial_parameters, filename, result_path):
         LOGGER.log(logging.ERROR, msg=str(result.params))
     for key in initial_parameters.valuesdict():
         param = result.params.get(key)
-        if param.stderr/param.value > 0.5:
-            LOGGER.log(logging.ERROR, msg='Parameter ' + param.name + ' has over 50% error')
+        if param.stderr/param.value > 0.1:
+            LOGGER.log(logging.ERROR, msg='Parameter ' + param.name + ' has over 10% error')
             LOGGER.log(logging.ERROR, msg='In file : ' + result_name)
     # check if directory exists, create if needed
     directory = os.path.dirname(result_path)
@@ -94,11 +91,9 @@ def plot_figures(initial_parameters, filename, result_path):
     # saving fit result to a text file
     with open(os.path.join(result_path, result_name + '_Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
-    fits_path=os.path.join(result_path, 'fits.txt')
-    if not os.path.exists(fits_path):
-        with open(fits_path, "w+") as all_fits:
-            all_fits.write('sample_name Rc n0 vdirac mobility')
+    fits_path = os.path.join(result_path, 'fits.txt')
     with open(fits_path, "w+") as all_fits:
+        all_fits.write('sample_name Rc n0 vdirac mobility')
         parameter_values = result.best_values
         line = "\n{} {} {} {} {}".format(result_name,parameter_values.get('Rc'), parameter_values.get('n0'),
                                          parameter_values.get('vdirac'), parameter_values.get('mobility'))
@@ -115,13 +110,12 @@ def plot_figures(initial_parameters, filename, result_path):
     pyplot.savefig(os.path.join(result_path, result_name))
 
 
-
 # set initial parameters with bounds
 init_parameters = lmfit.Parameters()
-init_parameters.add('mobility', value=4e3, min=10) # in cm^2/V*s
+init_parameters.add('mobility', value=4e3, min=10)  # in cm^2/V*s
 init_parameters.add('Rc', value=1e3, min=10)  # in ohm
 init_parameters.add('n0', value=1e12, min=1e10)  # in cm^-2
-init_parameters.add('vdirac', value=50, min=0)  # in volts
+init_parameters.add('vdirac', value=50, min=0, max=150)  # in volts
 
 # system prompts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
