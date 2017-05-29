@@ -52,22 +52,11 @@ def read_data(filename):
     with open(filename) as dataFile:
         data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
         voltages = numpy.array(data[:, 0])
-        cutoff_index = 0
-        if cutoff_voltage is not None:
-            for index in range(len(voltages)):
-                if voltages[index] > cutoff_voltage:
-                    cutoff_index = index
-                    break
-        if cutoff_index is not 0:
-            voltages = numpy.array(data[:cutoff_index, 0])
-            currents = numpy.array(data[:cutoff_index, 1])
-            currents_err = numpy.array(data[:cutoff_index, 2])
-        else:
-            currents = numpy.array(data[:, 1])
-            currents_err = numpy.array(data[:, 2])
+        currents = numpy.array(data[:, 1])
+        currents_err = numpy.array(data[:, 2])
         resistance = numpy.array(ds_voltage / currents)
         resistance_err = numpy.array(ds_voltage / (currents ** 2) * currents_err)
-        return voltages, currents, resistance_err, resistance
+        return voltages, resistance_err, resistance
 
 
 def model(voltages, Rc, n0, vdirac, mobility):
@@ -77,7 +66,18 @@ def model(voltages, Rc, n0, vdirac, mobility):
 
 
 def plot_figures(initial_parameters, data, result_path, result_name):
-    voltages, currents, resistance_err, resistance = data
+    voltages, resistance_err, resistance = data
+    cutoff_index = 0
+    cutoff_voltages = voltages
+    cutoff_resistance = resistance
+    if cutoff_voltage is not None:
+        for index in range(len(voltages)):
+            if voltages[index] > cutoff_voltage:
+                cutoff_index = index
+                break
+    if cutoff_index is not 0:
+        cutoff_voltages = numpy.array(voltages[:cutoff_index])
+        cutoff_resistance = numpy.array(resistance[:cutoff_index])
 
     # fitting to data using leastsq method
     gmod = lmfit.Model(model)
@@ -85,7 +85,7 @@ def plot_figures(initial_parameters, data, result_path, result_name):
     # Methods: by default, leastsq - Levenberg-Marquardt algorithm,
     # Many of the fit statistics and estimates for uncertainties are done for this only
     # Alternative methods: nelder, lbfgsb, powell, cg, newton, dogleg - more in lmfit docs
-    result = gmod.fit(resistance, voltages=voltages, params=initial_parameters, method='leastsq')
+    result = gmod.fit(cutoff_resistance, voltages=cutoff_voltages, params=initial_parameters, method='leastsq')
     if not result.errorbars:
         LOGGER.log(logging.ERROR, msg='No error estimates in file: '+result_name)
         LOGGER.log(logging.ERROR, msg='Probable cause is too distant initial guess')
@@ -113,7 +113,7 @@ def plot_figures(initial_parameters, data, result_path, result_name):
         all_fits.write(line)
     pyplot.figure()
     scatter = pyplot.scatter(voltages, resistance)
-    best_fit_line, = pyplot.plot(voltages, result.best_fit, 'r-')
+    best_fit_line, = pyplot.plot(cutoff_voltages, result.best_fit, 'r-')
     pyplot.xlabel('Napięcie bramki [ V ]')
     pyplot.ylabel('Opór [ \u2126 ]')
     pyplot.figtext(0.15, 0.68, 'Napięcie dren-źródło: ' + str(ds_voltage) + 'V')
