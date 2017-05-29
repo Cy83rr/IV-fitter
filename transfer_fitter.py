@@ -92,7 +92,7 @@ def plot_figures(initial_parameters, data, result_path, result_name):
         LOGGER.log(logging.ERROR, msg=str(result.params))
     for key in initial_parameters.valuesdict():
         param = result.params.get(key)
-        if param.stderr/param.value > 0.1:
+        if param.stderr/param.value > 0.05:
             LOGGER.log(logging.ERROR, msg='Parameter ' + param.name + ' has over 10% error')
             LOGGER.log(logging.ERROR, msg='In file : ' + result_name)
     # check if directory exists, create if needed
