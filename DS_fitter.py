@@ -13,8 +13,6 @@ import pandas
 
 # sample length/width, unitless - default value
 sampleDimension = 6
-# default value
-gate_voltage = 0.01
 # electron charge in [C]
 echarge = 1.6021766208 * 1e-19
 # vacuum permittivity in [F/m]
@@ -43,17 +41,29 @@ LOGGER.addHandler(handler)
 # TODO use lists for currents and errors, iterate
 def read_data(filename):
     with open(filename) as dataFile:
-        data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
+        columns=pandas.read_csv(dataFile, sep='\t', decimal=',')
+        column_names=list(columns)
+        gate_voltages_strings = []
+        gate_voltages = []
+        for current_index in range(1, len(column_names)-1, 2):
+            gate_voltages_strings.append(column_names[current_index])
+        for record in gate_voltages_strings:
+            gate_voltages.append(float(''.join(c for c in record if c not in 'I()').replace(',', '.')))
+        data = columns.values
         voltages = numpy.array(data[:, 0])
-        number_of_currents = len(data[1])-1
+        number_of_currents = len(data[1])
         currents = []
+        resistance = []
         currents_err = []
+        resistance_err = []
         for data_index in range(1, number_of_currents - 1, 2):
             currents.append(numpy.array(data[:, data_index]))
             currents_err.append(numpy.array(data[:, data_index+1]))
-        resistance = numpy.array(gate_voltage / numpy.array(currents))
-        resistance_err = numpy.array(gate_voltage / (numpy.array(currents) ** 2) * numpy.array(currents_err))
-        return voltages, resistance_err, resistance
+        for index in range(0, len(gate_voltages)):
+            resistance.append(gate_voltages[index] / numpy.array(currents[index]))
+            resistance_err.append(gate_voltages[index] / (numpy.array(currents[index]) ** 2) * numpy.array(currents_err))
+
+        return voltages, numpy.array(resistance_err), numpy.array(resistance)
 
 
 def plot_figures(data, result_path, result_name):
@@ -72,7 +82,7 @@ def plot_figures(data, result_path, result_name):
         pyplot.plot(voltages, resistance_data)
     pyplot.xlabel('Napięcie dren-źródło [ V ]')
     pyplot.ylabel('Opór [ \u2126 ]')
-    pyplot.figtext(0.15, 0.68, 'Napięcie bramki: ' + str(gate_voltage) + 'V')
+#    pyplot.figtext(0.15, 0.68, 'Napięcie bramki: ' + str(gate_voltage) + 'V')
     pyplot.figtext(0.15, 0.65, 'Wymiar próbki: ' + str(sampleDimension))
     pyplot.title('Charakterystyka wyjśćiowa')
     # legenda
@@ -83,7 +93,6 @@ def plot_figures(data, result_path, result_name):
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
 resultPath = input("Write the path where the results will be saved(default: current directory/results): ") or os.path.curdir + '/results/'
 sampleDimension = int(input("Sample dimension (length/width, default: 6): ") or 6)
-gate_voltage = float(input("Gate Voltage (in Volts, default: 0.01): ") or 0.01)
 
 LOGGER.info('Script starting')
 
