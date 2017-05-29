@@ -93,7 +93,7 @@ def plot_figures(initial_parameters, data, result_path, result_name):
     for key in initial_parameters.valuesdict():
         param = result.params.get(key)
         if param.stderr/param.value > 0.05:
-            LOGGER.log(logging.ERROR, msg='Parameter ' + param.name + ' has over 10% error')
+            LOGGER.log(logging.ERROR, msg='Parameter ' + param.name + ' has over 5% error')
             LOGGER.log(logging.ERROR, msg='In file : ' + result_name)
     # check if directory exists, create if needed
     directory = os.path.dirname(result_path)
@@ -135,7 +135,7 @@ filePath = input("Write the path to data files (default: current directory): ") 
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Sample dimension (length/width, default: 6): ") or 6)
 ds_voltage = float(input("Drain/Source Voltage (in Volts, default: 0.01): ") or 0.01)
-cutoff_voltage = input("Cutoff voltage for data analysis, default: none") or None
+cutoff_voltage = input("Cutoff voltage for data analysis(in Volts, default: none):") or None
 if cutoff_voltage is not None:
     cutoff_voltage = float(cutoff_voltage)
 
