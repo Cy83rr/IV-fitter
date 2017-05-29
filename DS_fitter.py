@@ -37,8 +37,7 @@ handler.setFormatter(formatter)
 
 LOGGER.addHandler(handler)
 
-# TODO different file structure, multiple series such as: U I dI I dI etc. gate voltage is in current column name
-# TODO use lists for currents and errors, iterate
+
 def read_data(filename):
     with open(filename) as dataFile:
         columns=pandas.read_csv(dataFile, sep='\t', decimal=',')
@@ -50,43 +49,36 @@ def read_data(filename):
         for record in gate_voltages_strings:
             gate_voltages.append(float(''.join(c for c in record if c not in 'I()').replace(',', '.')))
         data = columns.values
-        voltages = numpy.array(data[:, 0])
+        voltages = numpy.array(data[:, 0]) * 1e3  # w mV
         number_of_currents = len(data[1])
         currents = []
-        resistance = []
         currents_err = []
-        resistance_err = []
+        # scale currents to microampers
         for data_index in range(1, number_of_currents - 1, 2):
-            currents.append(numpy.array(data[:, data_index]))
-            currents_err.append(numpy.array(data[:, data_index+1]))
-        for index in range(0, len(gate_voltages)):
-            resistance.append(gate_voltages[index] / numpy.array(currents[index]))
-            resistance_err.append(gate_voltages[index] / (numpy.array(currents[index]) ** 2) * numpy.array(currents_err))
+            currents.append(numpy.array(data[:, data_index]) * 1e6)
+            currents_err.append(numpy.array(data[:, data_index+1]) * 1e6)
 
-        return voltages, numpy.array(resistance_err), numpy.array(resistance)
+        return voltages, numpy.array(currents_err), numpy.array(currents), gate_voltages
 
 
 def plot_figures(data, result_path, result_name):
 
-    voltages, resistance_err, resistance = data
+    voltages, currents_err, currents, gate_voltages = data
 
     # check if directory exists, create if needed
     directory = os.path.dirname(result_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    number_of_currents = len(resistance)
-
     pyplot.figure()
-    for resistance_data in resistance:
-        pyplot.plot(voltages, resistance_data)
-    pyplot.xlabel('Napięcie dren-źródło [ V ]')
-    pyplot.ylabel('Opór [ \u2126 ]')
-#    pyplot.figtext(0.15, 0.68, 'Napięcie bramki: ' + str(gate_voltage) + 'V')
+    for i in range(0, len(currents)):
+        pyplot.errorbar(voltages, currents[i], currents_err[i])
+    pyplot.xlabel('Napięcie dren-źródło [ mV ]')
+    pyplot.ylabel('Natężenie dren-źródło [ μA ]')
+    pyplot.figtext(0.15, 0.68, 'Napięcia bramki od: ' + str(gate_voltages[0]) + ' V do '
+                   + str(gate_voltages[len(gate_voltages)-1]) + ' V ')
     pyplot.figtext(0.15, 0.65, 'Wymiar próbki: ' + str(sampleDimension))
-    pyplot.title('Charakterystyka wyjśćiowa')
-    # legenda
-    #pyplot.legend([scatter, ], ['Dane', ''], loc='upper left')
+    pyplot.title('Charakterystyka wyjściowa')
     pyplot.savefig(os.path.join(result_path, result_name))
 
 # system prompts for data input/output
