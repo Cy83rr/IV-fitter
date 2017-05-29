@@ -12,6 +12,8 @@ import pandas
 # Constants
 #############
 
+# data cutoff value, volts - default value
+cutoff_voltage = None
 # sample length/width, unitless - default value
 sampleDimension = 6
 # default value
@@ -50,8 +52,19 @@ def read_data(filename):
     with open(filename) as dataFile:
         data = pandas.read_csv(dataFile, sep='\t', decimal=',').values
         voltages = numpy.array(data[:, 0])
-        currents = numpy.array(data[:, 1])
-        currents_err = numpy.array(data[:, 2])
+        cutoff_index = 0
+        if cutoff_voltage is not None:
+            for index in range(len(voltages)):
+                if voltages[index] > cutoff_voltage:
+                    cutoff_index = index
+                    break
+        if cutoff_index is not 0:
+            voltages = numpy.array(data[:cutoff_index, 0])
+            currents = numpy.array(data[:cutoff_index, 1])
+            currents_err = numpy.array(data[:cutoff_index, 2])
+        else:
+            currents = numpy.array(data[:, 1])
+            currents_err = numpy.array(data[:, 2])
         resistance = numpy.array(ds_voltage / currents)
         resistance_err = numpy.array(ds_voltage / (currents ** 2) * currents_err)
         return voltages, currents, resistance_err, resistance
@@ -63,10 +76,8 @@ def model(voltages, Rc, n0, vdirac, mobility):
             (numpy.sqrt(n0**2 + (cox * (voltages - vdirac) / echarge)**2) * echarge * mobility))
 
 
-def plot_figures(initial_parameters, filename, result_path):
-
-    result_name = os.path.split(os.path.splitext(filename)[0])[1]
-    voltages, currents, resistance_err, resistance = read_data(filename)
+def plot_figures(initial_parameters, data, result_path, result_name):
+    voltages, currents, resistance_err, resistance = data
 
     # fitting to data using leastsq method
     gmod = lmfit.Model(model)
@@ -92,8 +103,10 @@ def plot_figures(initial_parameters, filename, result_path):
     with open(os.path.join(result_path, result_name + '_Fit.txt'), "w+") as fitResult:
         fitResult.write(result.fit_report())
     fits_path = os.path.join(result_path, 'fits.txt')
-    with open(fits_path, "w+") as all_fits:
-        all_fits.write('sample_name Rc n0 vdirac mobility')
+    if not os.path.exists(fits_path):
+        with open(fits_path, 'w+') as all_fits:
+            all_fits.write('sample_name Rc n0 vdirac mobility')
+    with open(fits_path, "a") as all_fits:
         parameter_values = result.best_values
         line = "\n{} {} {} {} {}".format(result_name,parameter_values.get('Rc'), parameter_values.get('n0'),
                                          parameter_values.get('vdirac'), parameter_values.get('mobility'))
@@ -122,11 +135,17 @@ filePath = input("Write the path to data files (default: current directory): ") 
 resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Sample dimension (length/width, default: 6): ") or 6)
 ds_voltage = float(input("Drain/Source Voltage (in Volts, default: 0.01): ") or 0.01)
+cutoff_voltage = input("Cutoff voltage for data analysis, default: none") or None
+if cutoff_voltage is not None:
+    cutoff_voltage = float(cutoff_voltage)
+
 
 LOGGER.info('Script starting')
 
 # Iterate over every file with .txt extension
 for infile in glob.glob(os.path.join(filePath, '*.txt')):
-    plot_figures(init_parameters, infile, resultPath)
+    data = read_data(infile)
+    result_name = os.path.split(os.path.splitext(infile)[0])[1]
+    plot_figures(init_parameters, data, resultPath, result_name)
 
 LOGGER.info('Script finished')
