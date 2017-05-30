@@ -83,7 +83,7 @@ def plot_figures(data, result_path, result_name):
 
 # system prompts for data input/output
 filePath = input("Write the path to data files (default: current directory): ") or os.path.curdir
-resultPath = input("Write the path where the results will be saved(default: current directory/results): ") or os.path.curdir + '/results/'
+resultPath = input("Write the path where the results will be saved(default: data directory/results): ") or filePath + '/results/'
 sampleDimension = int(input("Sample dimension (length/width, default: 6): ") or 6)
 
 LOGGER.info('Script starting')
